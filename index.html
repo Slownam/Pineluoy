@@ -3,25 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Create Server - Minimal (WORKING)</title>
+  <title>Create Server via VSUNSEE API (WORKING)</title>
   <style>
     body{font-family:Inter,Arial,system-ui;background:#f7fafc;color:#0f172a;padding:20px}
-    .card{background:#fff;border-radius:8px;padding:18px;max-width:640px;margin:20px auto;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
+    .card{background:#fff;border-radius:8px;padding:18px;max-width:720px;margin:20px auto;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
     input,select,button,textarea{width:100%;padding:10px;margin:8px 0;border:1px solid #e6eef6;border-radius:8px}
     label{font-weight:700;font-size:13px}
-    button{background:#2563eb;color:#fff;border:0;cursor:pointer}
+    button{background:#2563eb;color:#fff;border:0;cursor:pointer;padding:10px;border-radius:8px}
     pre{background:#0b1220;color:#e6eef8;padding:12px;border-radius:8px;overflow:auto}
     .muted{color:#64748b;font-size:13px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   </style>
 </head>
 <body>
   <div class="card">
-    <h3>Create Server (minimal)</h3>
-    <p class="muted">Isi nama server dan pilih RAM. Email/password akan dibuat otomatis.</p>
+    <h3>Create Server 2 (via apiz.vsunsee.sbs)</h3>
+    <p class="muted">Isi **Nama** dan pilih paket **RAM**. Sistem akan membuat email/password otomatis lalu memanggil endpoint VSUNSEE.</p>
 
     <form id="form">
-      <label>Nama (digunakan untuk username/email & server name)</label>
+      <label>Nama (digunakan untuk username & nameserver)</label>
       <input id="name" name="name" placeholder="misal: rizky" required />
 
       <label>Pilih Paket RAM</label>
@@ -37,33 +36,38 @@
         <option value="9gb">9GB</option>
         <option value="10gb">10GB</option>
         <option value="unlimited">Unlimited</option>
-        <option value="unli">Unli (alias)</option>
+        <option value="unli">Unli</option>
       </select>
 
       <div style="margin-top:8px;">
-        <button type="submit">Buat Server</button>
+        <button type="submit">Buat via API</button>
       </div>
     </form>
 
-    <div id="info" style="display:none;margin-top:12px;">
-      <h4>Hasil</h4>
+    <div id="result" style="display:none;margin-top:12px;">
+      <h4>Informasi Akun (lokal)</h4>
       <div id="creds"></div>
-      <h4>Response API</h4>
+
+      <h4 style="margin-top:8px">Response API</h4>
       <pre id="apiResp">-</pre>
     </div>
-    <p class="muted" style="margin-top:10px">Catatan: settings.js harus berisi konfigurasi panel (Domain & ptla). Bisa muncul CORS error di browser — itu normal kalau panel tidak mengizinkan request dari origin ini.</p>
+
+    <p class="muted" style="margin-top:12px">
+      <strong>PENTING:</strong> Edit `settings.js` untuk mengisi parameter: <code>Domain</code> (panel domain), <code>ptla</code> (apikey ptero), <code>ptlc</code> (capikey ptero).  
+      Endpoint eksternal ini bisa mengembalikan error CORS jika tidak mengizinkan origin — kalau muncul CORS, gunakan proxy server.
+    </p>
   </div>
 
 <script src="settings.js"></script>
 <script>
-  // ambil config dari settings.js (harus men-assign ke window.*)
-  const domain = (window.Domain || '').replace(/\/$/, '');
-  const apikey = window.ptla || '';
-  const egg = window.egg || '';
-  const nestid = window.nestid || '';
-  const loc = window.loc || '';
+  // Ambil konfigurasi dari settings.js
+  const VS_BASE = 'https://apiz.vsunsee.sbs/vsunseeV8/create';
+  const DomainVal = window.Domain || '';   // param domain untuk API (isikan panel domain jika perlu)
+  const apikeyPtero = window.ptla || '';   // akan diisi ke query apikeyptero
+  const capiKeyPtero = window.ptlc || '';  // akan diisi ke query capikeyptero
+  const useRootAdmin = (typeof window.rootadmin !== 'undefined') ? !!window.rootadmin : false; // optional override
 
-  // mapping sesuai snippet WA yang kamu kasih
+  // resource mapping sama seperti di snippet WA-mu
   const resourceMap = {
     "1gb":  { ram: 1000,  disk: 1000,  cpu: 40 },
     "2gb":  { ram: 2000,  disk: 1000,  cpu: 60 },
@@ -79,131 +83,72 @@
     "unli":      { ram: 0, disk: 0, cpu: 0 }
   };
 
-  const DOCKER_IMAGE = 'rocker/r-base:24'; // sesuai permintaanmu (versi 24)
-
   function rand3(){ return String(Math.floor(Math.random()*900)+100); }
   function sanitize(u){ return u.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-_\.]/g,''); }
   function capitalize(s){ if(!s) return s; return s[0].toUpperCase()+s.slice(1); }
-  function nowDate(){ return new Date().toISOString(); }
+  function show(el){ el.style.display = 'block'; }
 
   document.getElementById('form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    if(!domain){ alert('ERROR: Domain belum diset di settings.js'); return; }
-    if(!apikey){ alert('ERROR: ptla (application API key) belum diset di settings.js'); return; }
+    if(!VS_BASE){ alert('Internal error: VS_BASE tidak ter-set'); return; }
+    if(!DomainVal){ alert('ERROR: settings.js -> Domain belum di-set'); return; }
+    if(!apikeyPtero){ alert('ERROR: settings.js -> ptla (apikey ptero) belum di-set'); return; }
+    if(!capiKeyPtero){ alert('ERROR: settings.js -> ptlc (capikey ptero) belum di-set'); return; }
+
     const raw = document.getElementById('name').value || '';
     if(!raw.trim()){ alert('Isi nama dulu'); return; }
-    const pkg = document.getElementById('package').value;
-    const r = resourceMap[pkg] || resourceMap['unlimited'];
+    const pkg = document.getElementById('package').value || '1gb';
+    const map = resourceMap[pkg] || resourceMap['unlimited'];
 
     const username = sanitize(raw);
-    const email = username + '@gmail.com';
-    const password = username + rand3();
-    const serverName = capitalize(username) + ' Server';
+    const email = username + '@gmail.com';   // sesuai permintaan
+    const password = username + rand3();     // nama + 3 digit
+    const nameserver = sanitize(raw);       // kita kirim nameserver = nama (bisa diubah)
+    const disk = map.disk;                  // sesuai mapping
+    const cpu = map.cpu;
 
-    // tampil kredensial lokal dulu
-    document.getElementById('info').style.display = 'block';
-    document.getElementById('creds').innerHTML =
-      `<strong>Username/email:</strong> ${email} <br><strong>Password:</strong> ${password} <br><strong>Server name:</strong> ${serverName} <br><strong>RAM:</strong> ${r.ram===0?'Unlimited':(r.ram/1000)+'GB'}`;
-
+    // tampilkan kredensial lokal dulu
+    const resultBox = document.getElementById('result');
+    const credsEl = document.getElementById('creds');
     const apiRespEl = document.getElementById('apiResp');
-    apiRespEl.textContent = 'Mengirim...';
+    credsEl.innerHTML = `<strong>Email/username:</strong> ${email}<br><strong>Password:</strong> ${password}<br><strong>Nameserver:</strong> ${nameserver}<br><strong>RAM:</strong> ${map.ram===0?'Unlimited':map.ram+' MB'}`;
+    show(resultBox);
+    apiRespEl.textContent = 'Mengirim request ke API...';
 
     try {
-      // 1) Buat user di panel
-      const userRes = await fetch(domain + '/api/application/users', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + apikey
-        },
-        body: JSON.stringify({
-          email,
-          username,
-          first_name: capitalize(username),
-          last_name: "Server",
-          language: "en",
-          password
-        })
+      // build query params sesuai endpoint yang kamu berikan
+      const params = new URLSearchParams({
+        domain: DomainVal,
+        apikeyptero: apikeyPtero,
+        capikeyptero: capiKeyPtero,
+        nameserver: nameserver,
+        password: password,
+        disk: String(disk),
+        cpu: String(cpu),
+        rootadmin: String(useRootAdmin) // default false
       });
-      const userJson = await userRes.json();
-      if(userJson.errors){
-        apiRespEl.textContent = 'Error create user: ' + JSON.stringify(userJson.errors[0], null, 2);
-        return;
-      }
-      const userId = userJson.attributes ? userJson.attributes.id : (userJson.data ? userJson.data.id : null);
-      if(!userId){
-        apiRespEl.textContent = 'Gagal mendapatkan user id dari response: ' + JSON.stringify(userJson, null, 2);
-        return;
-      }
 
-      // 2) Ambil startup command dari egg (optional, jika egg tersedia)
-      let startup_cmd = '';
-      if(nestid && egg){
-        try {
-          const eggRes = await fetch(domain + `/api/application/nests/${nestid}/eggs/${egg}`, {
-            method: 'GET',
-            headers: { 'Accept':'application/json', 'Content-Type':'application/json', 'Authorization':'Bearer '+apikey }
-          });
-          const eggJson = await eggRes.json();
-          // struktur: attributes.startup
-          startup_cmd = (eggJson.attributes && eggJson.attributes.startup) ? eggJson.attributes.startup : (eggJson.data && eggJson.data.attributes ? eggJson.data.attributes.startup : '');
-        } catch(e){
-          // tidak fatal — lanjut dengan startup kosong
-          startup_cmd = '';
-        }
-      }
+      const url = VS_BASE + '?' + params.toString();
 
-      // 3) Buat server
-      const serverPayload = {
-        name: serverName,
-        description: nowDate(),
-        user: userId,
-        egg: egg ? parseInt(egg) : undefined,
-        docker_image: DOCKER_IMAGE,
-        startup: startup_cmd || '',
-        environment: { EMAIL: email, PASSWORD: password },
-        limits: {
-          memory: r.ram,
-          swap: 0,
-          disk: r.disk,
-          io: 500,
-          cpu: r.cpu
-        },
-        feature_limits: { databases: 5, backups: 5, allocations: 5 },
-        deploy: { locations: loc ? [parseInt(loc)] : [], dedicated_ip: false, port_range: [] }
-      };
-
-      // bersihkan undefined (egg bisa undefined)
-      Object.keys(serverPayload).forEach(k => serverPayload[k] === undefined && delete serverPayload[k]);
-
-      const srvRes = await fetch(domain + '/api/application/servers', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + apikey
-        },
-        body: JSON.stringify(serverPayload)
+      // NOTE: endpoint ini menggunakan GET dengan query string
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
       });
-      const srvJson = await srvRes.json();
-      if(srvJson.errors){
-        apiRespEl.textContent = 'Error create server: ' + JSON.stringify(srvJson.errors[0], null, 2);
-        return;
+
+      const text = await resp.text();
+      try {
+        const j = JSON.parse(text);
+        apiRespEl.textContent = JSON.stringify(j, null, 2);
+      } catch (e) {
+        apiRespEl.textContent = text;
       }
 
-      // Ambil server id (struktur bergantung versi API)
-      const serverId = srvJson.attributes ? srvJson.attributes.id : (srvJson.data ? srvJson.data.id : null);
-
-      apiRespEl.textContent = JSON.stringify(srvJson, null, 2);
-      // Opsional: tampil pesan sukses ringkas
-      if(serverId) {
-        apiRespEl.textContent = `Sukses membuat server. Server ID: ${serverId}\n\n` + JSON.stringify(srvJson, null, 2);
+      if(!resp.ok){
+        apiRespEl.textContent = `Request gagal, HTTP ${resp.status}\\n` + apiRespEl.textContent;
       }
-
     } catch (err) {
-      apiRespEl.textContent = 'Terjadi kesalahan: ' + err.message;
-      return;
+      apiRespEl.textContent = 'Terjadi kesalahan saat request: ' + err.message;
     }
   });
 </script>
