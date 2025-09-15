@@ -3,71 +3,84 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Create Server via VSUNSEE API (WORKING)</title>
+  <title>Server Creater</title>
   <style>
-    body{font-family:Inter,Arial,system-ui;background:#f7fafc;color:#0f172a;padding:20px}
-    .card{background:#fff;border-radius:8px;padding:18px;max-width:720px;margin:20px auto;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
-    input,select,button,textarea{width:100%;padding:10px;margin:8px 0;border:1px solid #e6eef6;border-radius:8px}
-    label{font-weight:700;font-size:13px}
-    button{background:#2563eb;color:#fff;border:0;cursor:pointer;padding:10px;border-radius:8px}
-    pre{background:#0b1220;color:#e6eef8;padding:12px;border-radius:8px;overflow:auto}
-    .muted{color:#64748b;font-size:13px}
+    :root{
+      --bg1:#6c5ce7;
+      --bg2:#4f46e5;
+      --accent:#8b5cf6;
+      --btn:#7c3aed;
+    }
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#eef2ff}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px}
+    .card{width:100%;max-width:720px;background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));border-radius:16px;padding:22px;border:1px solid rgba(255,255,255,0.06);box-shadow:0 10px 30px rgba(15,23,42,0.45)}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 18px;color:rgba(226,232,255,0.9)}
+    label{display:block;font-weight:700;margin-top:10px;font-size:13px;color:#eef2ff}
+    input,select{width:100%;padding:12px 14px;margin-top:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#c7d2fe;outline:none;font-size:14px}
+    .actions{display:flex;gap:12px;align-items:center;margin-top:16px}
+    .btn{background:linear-gradient(90deg,var(--btn),#5b21b6);color:white;padding:12px 16px;border-radius:12px;border:0;font-weight:700;cursor:pointer}
+    .btn:disabled{opacity:0.6;cursor:not-allowed}
+    .muted{color:rgba(226,232,255,0.8);font-size:13px}
+    .result{margin-top:18px;background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    pre{white-space:pre-wrap;word-wrap:break-word;color:#e6eef8;background:transparent;border:0;margin:0}
+    .cred{font-size:14px;color:#c7d2fe;margin-bottom:8px}
+    .loader{width:36px;height:36px;border-radius:50%;border:4px solid rgba(255,255,255,0.12);border-top-color:var(--accent);animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .footer{margin-top:12px;color:rgba(226,232,255,0.6);font-size:12px}
+    @media (max-width:560px){.actions{flex-direction:column;align-items:stretch}}
   </style>
 </head>
 <body>
-  <div class="card">
-    <h3>Create Server 2 (via apiz.vsunsee.sbs)</h3>
-    <p class="muted">Isi **Nama** dan pilih paket **RAM**. Sistem akan membuat email/password otomatis lalu memanggil endpoint VSUNSEE.</p>
+  <div class="wrap">
+    <div class="card">
+      <h1>Create Server</h1>
+      <p class="lead">Isi nama server & pilih paket RAM.</p>
 
-    <form id="form">
-      <label>Nama (digunakan untuk username & nameserver)</label>
-      <input id="name" name="name" placeholder="misal: rizky" required />
+      <form id="form">
+        <label for="name">Nama (username / nameserver)</label>
+        <input id="name" name="name" placeholder="contoh: lfstar" required autocomplete="off" />
 
-      <label>Pilih Paket RAM</label>
-      <select id="package" name="package">
-        <option value="1gb">1GB</option>
-        <option value="2gb">2GB</option>
-        <option value="3gb">3GB</option>
-        <option value="4gb">4GB</option>
-        <option value="5gb">5GB</option>
-        <option value="6gb">6GB</option>
-        <option value="7gb">7GB</option>
-        <option value="8gb">8GB</option>
-        <option value="9gb">9GB</option>
-        <option value="10gb">10GB</option>
-        <option value="unlimited">Unlimited</option>
-        <option value="unli">Unli</option>
-      </select>
+        <label for="package">Pilih Paket RAM</label>
+        <select id="package" name="package">
+          <option value="1gb">1GB</option>
+          <option value="2gb">2GB</option>
+          <option value="3gb">3GB</option>
+          <option value="4gb">4GB</option>
+          <option value="5gb">5GB</option>
+          <option value="6gb">6GB</option>
+          <option value="7gb">7GB</option>
+          <option value="8gb">8GB</option>
+          <option value="9gb">9GB</option>
+          <option value="10gb">10GB</option>
+          <option value="unlimited">Unlimited</option>
+          <option value="unli">Unli</option>
+        </select>
 
-      <div style="margin-top:8px;">
-        <button type="submit">Buat via API</button>
+        <div class="actions">
+          <button id="btn" class="btn" type="submit">Buat Server</button>
+          <div id="statusArea" class="muted">&nbsp;</div>
+        </div>
+      </form>
+
+      <div id="resultBox" class="result" style="display:none">
+        <div id="localCreds" class="cred"></div>
+        <div id="loading" style="display:none;align-items:center;gap:12px"><div class="loader"></div><div class="muted">Sedang memproses... tunggu sebentar</div></div>
+        <pre id="apiResp">-</pre>
       </div>
-    </form>
 
-    <div id="result" style="display:none;margin-top:12px;">
-      <h4>Informasi Akun (lokal)</h4>
-      <div id="creds"></div>
-
-      <h4 style="margin-top:8px">Response API</h4>
-      <pre id="apiResp">-</pre>
+      <div class="footer">Di Buat Dengan ❤ - ©Lfstar.</div>
     </div>
-
-    <p class="muted" style="margin-top:12px">
-      <strong>PENTING:</strong> Edit `settings.js` untuk mengisi parameter: <code>Domain</code> (panel domain), <code>ptla</code> (apikey ptero), <code>ptlc</code> (capikey ptero).  
-      Endpoint eksternal ini bisa mengembalikan error CORS jika tidak mengizinkan origin — kalau muncul CORS, gunakan proxy server.
-    </p>
   </div>
 
 <script src="settings.js"></script>
 <script>
-  // Ambil konfigurasi dari settings.js
   const VS_BASE = 'https://apiz.vsunsee.sbs/vsunseeV8/create';
-  const DomainVal = window.Domain || '';   // param domain untuk API (isikan panel domain jika perlu)
-  const apikeyPtero = window.ptla || '';   // akan diisi ke query apikeyptero
-  const capiKeyPtero = window.ptlc || '';  // akan diisi ke query capikeyptero
-  const useRootAdmin = (typeof window.rootadmin !== 'undefined') ? !!window.rootadmin : false; // optional override
+  const DomainVal = (window.Domain || '').replace(/\/$/,'');
+  const apikeyPtero = window.ptla || '';
+  const capikeyPtero = window.ptlc || '';
+  const useRootAdmin = !!window.rootadmin;
 
-  // resource mapping sama seperti di snippet WA-mu
   const resourceMap = {
     "1gb":  { ram: 1000,  disk: 1000,  cpu: 40 },
     "2gb":  { ram: 2000,  disk: 1000,  cpu: 60 },
@@ -85,15 +98,19 @@
 
   function rand3(){ return String(Math.floor(Math.random()*900)+100); }
   function sanitize(u){ return u.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-_\.]/g,''); }
-  function capitalize(s){ if(!s) return s; return s[0].toUpperCase()+s.slice(1); }
-  function show(el){ el.style.display = 'block'; }
 
-  document.getElementById('form').addEventListener('submit', async (e) => {
+  const form = document.getElementById('form');
+  const btn = document.getElementById('btn');
+  const statusArea = document.getElementById('statusArea');
+  const resultBox = document.getElementById('resultBox');
+  const apiResp = document.getElementById('apiResp');
+  const loading = document.getElementById('loading');
+  const localCreds = document.getElementById('localCreds');
+
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if(!VS_BASE){ alert('Internal error: VS_BASE tidak ter-set'); return; }
-    if(!DomainVal){ alert('ERROR: settings.js -> Domain belum di-set'); return; }
-    if(!apikeyPtero){ alert('ERROR: settings.js -> ptla (apikey ptero) belum di-set'); return; }
-    if(!capiKeyPtero){ alert('ERROR: settings.js -> ptlc (capikey ptero) belum di-set'); return; }
+    if(!DomainVal){ alert('settings.js: Domain belum diisi'); return; }
+    if(!apikeyPtero){ alert('settings.js: ptla (apikey ptero) belum diisi'); return; }
 
     const raw = document.getElementById('name').value || '';
     if(!raw.trim()){ alert('Isi nama dulu'); return; }
@@ -101,54 +118,42 @@
     const map = resourceMap[pkg] || resourceMap['unlimited'];
 
     const username = sanitize(raw);
-    const email = username + '@gmail.com';   // sesuai permintaan
-    const password = username + rand3();     // nama + 3 digit
-    const nameserver = sanitize(raw);       // kita kirim nameserver = nama (bisa diubah)
-    const disk = map.disk;                  // sesuai mapping
-    const cpu = map.cpu;
+    const email = username + '@gmail.com';
+    const password = username + rand3();
+    const nameserver = username;
 
-    // tampilkan kredensial lokal dulu
-    const resultBox = document.getElementById('result');
-    const credsEl = document.getElementById('creds');
-    const apiRespEl = document.getElementById('apiResp');
-    credsEl.innerHTML = `<strong>Email/username:</strong> ${email}<br><strong>Password:</strong> ${password}<br><strong>Nameserver:</strong> ${nameserver}<br><strong>RAM:</strong> ${map.ram===0?'Unlimited':map.ram+' MB'}`;
-    show(resultBox);
-    apiRespEl.textContent = 'Mengirim request ke API...';
+    localCreds.innerHTML = `<strong>Email:</strong> ${email} &nbsp; <strong>Password:</strong> ${password} &nbsp; <strong>Nameserver:</strong> ${nameserver}`;
+    resultBox.style.display = 'block';
+    apiResp.textContent = '';
+    loading.style.display = 'flex';
+    btn.disabled = true;
+    statusArea.textContent = 'Mengirim...';
 
-    try {
-      // build query params sesuai endpoint yang kamu berikan
+    try{
       const params = new URLSearchParams({
         domain: DomainVal,
         apikeyptero: apikeyPtero,
-        capikeyptero: capiKeyPtero,
+        capikeyptero: capikeyPtero,
         nameserver: nameserver,
         password: password,
-        disk: String(disk),
-        cpu: String(cpu),
-        rootadmin: String(useRootAdmin) // default false
+        disk: String(map.disk),
+        cpu: String(map.cpu),
+        rootadmin: String(useRootAdmin)
       });
 
       const url = VS_BASE + '?' + params.toString();
+      const res = await fetch(url, { method: 'GET', headers: { 'Accept':'application/json' } });
+      const text = await res.text();
 
-      // NOTE: endpoint ini menggunakan GET dengan query string
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-
-      const text = await resp.text();
-      try {
-        const j = JSON.parse(text);
-        apiRespEl.textContent = JSON.stringify(j, null, 2);
-      } catch (e) {
-        apiRespEl.textContent = text;
-      }
-
-      if(!resp.ok){
-        apiRespEl.textContent = `Request gagal, HTTP ${resp.status}\\n` + apiRespEl.textContent;
-      }
-    } catch (err) {
-      apiRespEl.textContent = 'Terjadi kesalahan saat request: ' + err.message;
+      // langsung tampilkan hasil API (apa adanya)
+      apiResp.textContent = text;
+      statusArea.textContent = res.ok ? 'Selesai' : `Selesai (HTTP ${res.status})`;
+    } catch(err){
+      apiResp.textContent = 'Request error: ' + err.message;
+      statusArea.textContent = 'Gagal';
+    } finally{
+      loading.style.display = 'none';
+      btn.disabled = false;
     }
   });
 </script>
