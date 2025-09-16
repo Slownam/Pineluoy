@@ -6,20 +6,19 @@
 <title>Login — Panel</title>
 <style>
   body{font-family:Inter,Arial,system-ui;background:linear-gradient(135deg,#6c5ce7,#4f46e5);color:#eef2ff;margin:0;height:100vh;display:flex;align-items:center;justify-content:center}
-  .card{background:rgba(255,255,255,0.04);padding:20px;border-radius:12px;max-width:420px;width:92%;box-shadow:0 8px 30px rgba(2,6,23,0.3)}
+  .card{background:rgba(255,255,255,0.04);padding:20px;border-radius:12px;max-width:440px;width:94%;box-shadow:0 8px 30px rgba(2,6,23,0.3)}
   h2{margin:0 0 8px}
   label{display:block;margin-top:10px;font-weight:700}
   input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#eef2ff;box-sizing:border-box}
   .btn{margin-top:12px;padding:10px;border-radius:8px;border:0;background:linear-gradient(90deg,#8b5cf6,#5b21b6);color:white;font-weight:700;width:100%}
   .muted{font-size:13px;color:#c7d2fe;margin-top:8px}
   .msg{margin-top:10px;font-size:13px}
-  pre{background:#07102a;padding:8px;border-radius:8px;overflow:auto}
 </style>
 </head>
 <body>
   <div class="card">
     <h2>Login</h2>
-    <p class="muted">Masukkan Nama, Email, Nomor WA, Tanggal Lahir, dan Kode Akses. Jika valid, langsung diarahkan ke halaman create panel.</p>
+    <p class="muted">Masukkan Nama, Email, Nomor WA, Tanggal Lahir, dan Kode Akses (1x). Jika valid, langsung diarahkan ke create panel.</p>
 
     <form id="form">
       <label>Nama</label>
@@ -46,23 +45,20 @@
 <script src="settings.js"></script>
 <script>
 /*
- WORKING login flow:
- - Uses GitHub REST API to GET database.json from private repo (replace DB_* constants)
- - Checks provided access code exists and unused.
- - If valid: mark code used, add account to db.accounts (with fields requested), PUT back to GitHub.
- - Save auth (sessionStorage) including DB config and token so create.html can write to DB.
- - Redirect to create.html
+  WORKING login:
+  - Uses DB credentials you provided (owner/repo/path/token).
+  - GET database.json, validate code, mark used, add account, PUT back.
+  - Save session (auth_user + db_cfg) and redirect to create.html.
 */
 
-/* ===== CONFIG: EDIT THESE to match your private DB repo (REQUIRED) =====
-   Or replace values programmatically before hosting.
-*/
-const DB_OWNER = 'YOUR_DB_GITHUB_OWNER';   // e.g. 'myuser' or 'org'
-const DB_REPO  = 'YOUR_DB_REPO_NAME';      // repo where database.json lives (private)
-const DB_PATH  = 'database.json';          // path in repo
-const DB_BRANCH = 'main';                  // branch
-const DB_TOKEN = 'ghp_REPLACE_WITH_YOUR_TOKEN'; // token with contents read/write for that repo
-/* ==================================================================== */
+/* ----- CONFIG: already filled with your data ----- */
+const DB_OWNER  = 'Slownam';
+const DB_REPO   = 'databsepanel';   // you specified this repo name
+const DB_PATH   = 'database.json';
+const DB_BRANCH = 'main';
+// Token you provided (no trailing dot)
+const DB_TOKEN  = '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';
+/* ------------------------------------------------- */
 
 const API_BASE = 'https://api.github.com/repos';
 function b64enc(s){ return btoa(unescape(encodeURIComponent(s))); }
