@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Create Server — Panel (after login)</title>
+  <style>
+    body{font-family:Inter,Arial,system-ui;background:#f7fafc;padding:24px;color:#0f172a}
+    .card{background:white;border-radius:12px;padding:18px;max-width:820px;margin:0 auto;box-shadow:0 6px 20px rgba(2,6,23,0.08)}
+    label{font-weight:700}
+    input,select,textarea{width:100%;padding:8px;margin:6px 0;border:1px solid #e2e8f0;border-radius:8px}
+    button{padding:10px 14px;border-radius:10px;border:0;background:#2563eb;color:white;font-weight:700;cursor:pointer}
+    pre{background:#0b1220;color:#e6eef8;padding:12px;border-radius:8px;overflow:auto}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Create Server (Requires Login)</h2>
+    <p style="color:#64748b">Hanya pengguna yang sudah login dapat mengakses halaman ini. Jika belum login, kamu akan diarahkan ke <a href="login.html">Login</a>.</p>
+
+    <div id="who" style="margin-bottom:10px;color:#0f172a"></div>
+
+    <form id="form">
+      <label>Server name</label><input id="name" required />
+
+      <div class="row">
+        <div><label>Owner user ID</label><input id="user" required /></div>
+        <div><label>Allocation ID (primary)</label><input id="alloc" /></div>
+      </div>
+
+      <div class="row">
+        <div><label>Egg ID</label><input id="egg" /></div>
+        <div><label>Nest ID</label><input id="nest" /></div>
+      </div>
+
+      <div class="row">
+        <div><label>Memory (MB)</label><input id="memory" type="number" value="512" /></div>
+        <div><label>Disk (MB)</label><input id="disk" type="number" value="1024" /></div>
+      </div>
+
+      <label>Startup Command (optional)</label><input id="startup" placeholder="npm start" />
+      <label>Docker image (optional)</label><input id="docker" placeholder="ghcr.io/parkervcp/yolks:nodejs_20" />
+
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+        <button type="submit">Buat Server</button>
+        <button id="logoutBtn" type="button" style="background:#111827;color:white;padding:10px;border-radius:8px;border:0">Logout</button>
+        <div id="status" style="color:#64748b"></div>
+      </div>
+    </form>
+
+    <h3 style="margin-top:14px">Response API</h3>
+    <pre id="resp">-</pre>
+  </div>
+
+<script src="settings.js"></script>
+<script>
+/* Protect page: require login (sessionStorage) */
+const authed = sessionStorage.getItem('auth_logged_in');
+if(!authed){
+  // not logged in -> redirect to login
+  location.href = 'login.html';
+} else {
+  const user = JSON.parse(sessionStorage.getItem('auth_user') || '{}');
+  document.getElementById('who').textContent = 'Login sebagai: ' + (user.name || user.email || user.id);
+}
+
+function safeWindow(name){ try { return window[name]; } catch(e){ return undefined; } }
+const Domain = safeWindow('Domain') || '';
+const ptla = safeWindow('ptla') || '';
+const defaultEgg = safeWindow('egg') || '';
+const defaultNest = safeWindow('nestid') || '';
+const defaultLoc = safeWindow('loc') || '';
+
+document.getElementById('egg').value = defaultEgg;
+document.getElementById('nest').value = defaultNest;
+
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  sessionStorage.removeItem('auth_user'); sessionStorage.removeItem('auth_logged_in');
+  location.href = 'login.html';
+});
+
+document.getElementById('form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const status = document.getElementById('status');
+  const resp = document.getElementById('resp');
+  status.textContent = 'Mengirim...'; resp.textContent = '-';
+
+  if(!Domain || !ptla){
+    resp.textContent = 'settings.js: Domain/ptla belum di-set.'; status.textContent = 'Gagal'; return;
+  }
+
+  const payload = {
+    name: document.getElementById('name').value.trim(),
+    user: parseInt(document.getElementById('user').value,10),
+    egg: parseInt(document.getElementById('egg').value || defaultEgg, 10),
+    docker_image: document.getElementById('docker').value || undefined,
+    startup: document.getElementById('startup').value || undefined,
+    environment: {},
+    allocation: document.getElementById('alloc').value ? [ parseInt(document.getElementById('alloc').value,10) ] : [],
+    limits: {
+      memory: parseInt(document.getElementById('memory').value,10) || 512,
+      swap: 0,
+      disk: parseInt(document.getElementById('disk').value,10) || 1024,
+      io: 500,
+      cpu: 0
+    },
+    feature_limits: { databases: 1, backups: 1, allocations: 1 },
+    deploy: { locations: defaultLoc ? [parseInt(defaultLoc,10)] : [] }
+  };
+
+  // remove undefined / empty arrays if needed
+  if(payload.docker_image === undefined) delete payload.docker_image;
+  if(payload.startup === undefined) delete payload.startup;
+  if(!payload.allocation || payload.allocation.length === 0) delete payload.allocation;
+
+  try{
+    const res = await fetch(Domain.replace(/\/$/,'' ) + '/api/application/servers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'Application/vnd.pterodactyl.v1+json',
+        'Authorization': 'Bearer ' + ptla
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await res.text();
+    try { resp.textContent = JSON.stringify(JSON.parse(text), null, 2); } catch(e){ resp.textContent = text; }
+    status.textContent = res.ok ? 'Sukses' : `Gagal (HTTP ${res.status})`;
+  }catch(err){
+    resp.textContent = 'Request error: ' + err.message;
+    status.textContent = 'Gagal';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin — Generate Access Code (WORKING)</title>
+  <style>
+    body{font-family:Inter,Arial,system-ui;background:#0b1220;color:#e6eef8;padding:18px}
+    .wrap{max-width:820px;margin:0 auto}
+    .card{background:#0f172a;padding:16px;border-radius:12px}
+    label{display:block;margin-top:10px;font-weight:700}
+    input,button,select,textarea{padding:8px;border-radius:8px;border:1px solid #1f2937;background:transparent;color:#e6eef8}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .btn{margin-top:12px;padding:10px 12px;border-radius:8px;background:#7c3aed;color:white;border:0;cursor:pointer}
+    .muted{color:#94a3b8}
+    .list{margin-top:12px;padding:10px;background:#07102a;border-radius:8px;max-height:340px;overflow:auto}
+    .item{display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid rgba(255,255,255,0.02)}
+    .small{font-size:13px;color:#c7d2fe}
+    .inline{display:flex;gap:8px;align-items:center}
+    .success{color:#86efac}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2>Admin Control — Generate Access Code</h2>
+      <p class="muted">Masukkan <strong>Nama</strong> lalu klik <em>Generate</em>. Sistem akan membuat 1 kode (format: <code>lfxxxxx</code>) dan menyimpannya ke <code>database.json</code> di GitHub (konfigurasi ada di <code>settings.js</code>).</p>
+
+      <h3>GitHub config (diperiksa di settings.js)</h3>
+      <p class="muted">Pastikan <code>settings.js</code> punya: <code>GITHUB_OWNER</code>, <code>GITHUB_REPO</code>, <code>GITHUB_PATH</code>, <code>GITHUB_TOKEN</code>. Kamu juga bisa mengubah input ini lalu klik <strong>Save to local</strong> untuk override lokal.</p>
+
+      <div class="row">
+        <input id="ghOwner" placeholder="Owner (override - kosong = settings.js)" />
+        <input id="ghRepo" placeholder="Repo (override - kosong = settings.js)" />
+      </div>
+      <div class="row">
+        <input id="ghPath" placeholder="Path (database.json)" />
+        <input id="ghBranch" placeholder="Branch (main)" />
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="saveLocal" class="btn">Save to local</button>
+        <button id="clearLocal" class="btn" style="background:#111827">Clear local overrides</button>
+        <button id="loadDb" class="btn" style="background:#0f172a">Load DB</button>
+      </div>
+
+      <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+
+      <h3>Buat Kode Akses (1x use)</h3>
+      <label>Nama penerima (boleh kosong untuk kode umum)</label>
+      <input id="inputName" placeholder="Nama penerima, mis: rizky" />
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <button id="genBtn" class="btn">Generate 1 Kode</button>
+        <div id="genStatus" class="muted">&nbsp;</div>
+      </div>
+
+      <div class="list" style="margin-top:16px">
+        <h4 class="small">Daftar Kode</h4>
+        <div id="codesList">(belum dimuat)</div>
+      </div>
+
+      <div class="list" style="margin-top:12px">
+        <h4 class="small">Akun (database)</h4>
+        <div id="accountsList">(belum dimuat)</div>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button id="exportBtn" class="btn">Export database.json (download)</button>
+        <button id="cleanupBtn" class="btn" style="background:#111827">Cleanup expired</button>
+      </div>
+
+      <div id="log" style="margin-top:12px;color:#c7d2fe"></div>
+    </div>
+  </div>
+
+<script src="settings.js"></script>
+<script>
+/*
+  admin.html (WORKING)
+  - generate single code from name input
+  - read GitHub config from settings.js or local overrides (localStorage cfg_GITHUB_*)
+  - read/write database.json via GitHub REST API (contents endpoint)
+  - code format: 'lf' + 5 alnum (total 7 chars)
+  - mark used logic handled by register/login flow (register will set used:true)
+*/
+
+const API_BASE = 'https://api.github.com/repos';
+
+// helpers
+function getLocalOverride(key){ return localStorage.getItem('cfg_'+key) || null; }
+function setLocalOverride(key, val){ localStorage.setItem('cfg_'+key, val); }
+function clearLocalOverrides(){
+  ['GITHUB_OWNER','GITHUB_REPO','GITHUB_PATH','GITHUB_BRANCH','GITHUB_TOKEN'].forEach(k => localStorage.removeItem('cfg_'+k));
+}
+function getConfig(){
+  // priority: localStorage override > settings.js window.*
+  const cfg = {};
+  cfg.owner = getLocalOverride('GITHUB_OWNER') || (window.GITHUB_OWNER || '') ;
+  cfg.repo  = getLocalOverride('GITHUB_REPO')  || (window.GITHUB_REPO  || '') ;
+  cfg.path  = getLocalOverride('GITHUB_PATH')  || (window.GITHUB_PATH  || 'database.json') ;
+  cfg.branch= getLocalOverride('GITHUB_BRANCH')|| (window.GITHUB_BRANCH || 'main') ;
+  cfg.token = getLocalOverride('GITHUB_TOKEN') || (window.GITHUB_TOKEN || '');
+  return cfg;
+}
+
+function base64Encode(s){ return btoa(unescape(encodeURIComponent(s))); }
+function base64Decode(b){ return decodeURIComponent(escape(atob(b))); }
+
+async function ghGet(owner, repo, path, token){
+  const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  const res = await fetch(url, { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }});
+  if(res.status === 404) return null;
+  if(!res.ok) throw new Error('GitHub GET error: ' + res.status + ' ' + await res.text());
+  return await res.json();
+}
+async function ghPut(owner, repo, path, b64content, message, sha, token, branch){
+  const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  const body = { message, content: b64content, branch };
+  if(sha) body.sha = sha;
+  const res = await fetch(url, { method:'PUT', headers:{ 'Authorization':'token '+token, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+  if(!res.ok) throw new Error('GitHub PUT error: ' + res.status + ' ' + await res.text());
+  return await res.json();
+}
+
+function genCodeOnce(){
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let s = 'lf';
+  for(let i=0;i<5;i++) s += chars.charAt(Math.floor(Math.random()*chars.length));
+  return s;
+}
+
+let currentDB = { codes:[], accounts:[] };
+let currentSha = null;
+
+function renderCodes(){
+  const out = document.getElementById('codesList');
+  out.innerHTML = '';
+  const arr = currentDB.codes || [];
+  if(arr.length === 0){ out.innerHTML = '<div class="small muted">Kosong</div>'; return; }
+  arr.slice().reverse().forEach(c=>{
+    const div = document.createElement('div'); div.className='item';
+    div.innerHTML = `<div><strong>${c.code}</strong> ${c.used?'<span style="color:#fca5a5">(used)</span>':''}<div class="small">for: ${c.name||'-'} • created: ${c.created_at||'-'}</div></div>
+      <div style="display:flex;gap:6px">
+        <button onclick="copyText('${c.code}')" class="btn">Copy</button>
+        <button onclick="deleteCode('${c.code}')" class="btn" style="background:#111827">Delete</button>
+      </div>`;
+    out.appendChild(div);
+  });
+}
+
+function renderAccounts(){
+  const out = document.getElementById('accountsList');
+  out.innerHTML = '';
+  const arr = currentDB.accounts || [];
+  if(arr.length === 0){ out.innerHTML = '<div class="small muted">Kosong</div>'; return; }
+  arr.slice().reverse().forEach(a=>{
+    const div = document.createElement('div'); div.className='item';
+    div.innerHTML = `<div><strong>${a.name||'-'}</strong><div class="small">${a.email||'-'} • ${a.wa||'-'}</div><div class="small">ID: ${a.id||'-'} • Expires: ${a.expires_at||'-'}</div></div>
+      <div style="display:flex;gap:6px">
+        <button onclick="deleteAccount('${a.id}')" class="btn" style="background:#991b1b">Delete</button>
+      </div>`;
+    out.appendChild(div);
+  });
+}
+
+function copyText(t){ navigator.clipboard?.writeText(t).then(()=>{ showLog('Copied '+t); }); }
+
+async function deleteCode(code){
+  if(!confirm('Hapus kode '+code+'?')) return;
+  currentDB.codes = (currentDB.codes||[]).filter(c => c.code !== code);
+  await saveDb('Delete code ' + code);
+}
+
+async function deleteAccount(id){
+  if(!confirm('Hapus akun '+id+'?')) return;
+  currentDB.accounts = (currentDB.accounts||[]).filter(a => a.id !== id);
+  await saveDb('Delete account ' + id);
+}
+
+function showLog(msg){
+  const el = document.getElementById('log');
+  el.innerHTML = `${(new Date()).toLocaleString()} — ${msg}<br/>` + el.innerHTML;
+}
+
+async function loadDb(){
+  const cfg = getConfig();
+  if(!cfg.owner || !cfg.repo || !cfg.token){ alert('GitHub config belum lengkap di settings.js atau overrides. Isi GITHUB_OWNER & GITHUB_REPO & GITHUB_TOKEN.'); return; }
+  showLog('Loading DB from GitHub...');
+  try{
+    const file = await ghGet(cfg.owner, cfg.repo, cfg.path, cfg.token);
+    if(!file){
+      currentDB = { codes:[], accounts:[] }; currentSha = null;
+      showLog('DB tidak ditemukan — akan dibuat saat menyimpan.');
+    } else {
+      currentSha = file.sha;
+      const content = base64Decode(file.content.replace(/\n/g,''));
+      currentDB = JSON.parse(content);
+      // normalize
+      currentDB.codes = currentDB.codes || [];
+      currentDB.accounts = currentDB.accounts || [];
+      showLog('DB dimuat. codes:' + currentDB.codes.length + ' accounts:' + currentDB.accounts.length);
+    }
+    renderCodes(); renderAccounts();
+  }catch(err){
+    alert('Load DB error: ' + err.message);
+    showLog('Load error: ' + err.message);
+  }
+}
+
+async function saveDb(message){
+  const cfg = getConfig();
+  if(!cfg.owner || !cfg.repo || !cfg.token){ alert('GitHub config belum lengkap.'); return; }
+  const content = base64Encode(JSON.stringify(currentDB, null, 2));
+  showLog('Menyimpan DB ke GitHub...');
+  try{
+    const res = await ghPut(cfg.owner, cfg.repo, cfg.path, content, message || 'Update DB', currentSha, cfg.token, cfg.branch);
+    currentSha = res.content.sha;
+    showLog('DB tersimpan (sha: ' + currentSha + ')');
+    await loadDb();
+  }catch(err){
+    alert('Save DB error: ' + err.message);
+    showLog('Save error: ' + err.message);
+  }
+}
+
+function cleanExpired(){
+  const now = Date.now();
+  currentDB.accounts = (currentDB.accounts||[]).filter(a=>{
+    if(!a.expires_at) return true;
+    const t = Date.parse(a.expires_at);
+    return isNaN(t) ? true : t > now;
+  });
+}
+
+// Generate single code and save
+document.getElementById('genBtn').addEventListener('click', async ()=>{
+  const name = (document.getElementById('inputName').value || '').trim();
+  const genStatus = document.getElementById('genStatus');
+  genStatus.textContent = 'Generating...';
+  const cfg = getConfig();
+  if(!cfg.owner || !cfg.repo || !cfg.token){
+    alert('GitHub config belum diisi (settings.js atau overrides).'); genStatus.textContent = ''; return;
+  }
+
+  try{
+    // ensure DB loaded
+    if(!currentDB || (!currentDB.codes && !currentDB.accounts)) await loadDb();
+
+    // generate unique code (check collisions)
+    let code;
+    let attempt = 0;
+    do {
+      code = genCodeOnce();
+      attempt++;
+      if(attempt > 20) throw new Error('Gagal generate code unik (coba lagi)');
+    } while((currentDB.codes||[]).some(c => c.code === code));
+
+    // push to db
+    const entry = { code, name: name || '', created_at: (new Date()).toISOString(), used: false };
+    currentDB.codes = currentDB.codes || [];
+    currentDB.codes.push(entry);
+
+    await saveDb('Generate code ' + code);
+    genStatus.innerHTML = `<span class="success">Kode dibuat: <strong>${code}</strong></span>`;
+    document.getElementById('inputName').value = '';
+  }catch(err){
+    alert('Error: ' + err.message);
+    genStatus.textContent = '';
+    showLog('Generate error: ' + err.message);
+  }
+});
+
+// Save local overrides from inputs
+document.getElementById('saveLocal').addEventListener('click', ()=>{
+  const owner = document.getElementById('ghOwner').value.trim();
+  const repo  = document.getElementById('ghRepo').value.trim();
+  const path  = document.getElementById('ghPath').value.trim();
+  const branch= document.getElementById('ghBranch').value.trim() || 'main';
+  if(owner) setLocalOverride('GITHUB_OWNER', owner);
+  if(repo) setLocalOverride('GITHUB_REPO', repo);
+  if(path) setLocalOverride('GITHUB_PATH', path);
+  if(branch) setLocalOverride('GITHUB_BRANCH', branch);
+  // token override not exposed here for security; if needed set localStorage 'cfg_GITHUB_TOKEN'
+  showLog('Local overrides saved. (Note: token must be in settings.js or localStorage cfg_GITHUB_TOKEN)');
+  alert('Saved local overrides (owner/repo/path/branch). Pastikan token ada di settings.js atau localStorage cfg_GITHUB_TOKEN.');
+});
+
+// Clear overrides
+document.getElementById('clearLocal').addEventListener('click', ()=>{
+  if(!confirm('Hapus semua override lokal?')) return;
+  clearLocalOverrides();
+  showLog('Local overrides cleared');
+  alert('Overrides lokal dihapus. Reload halaman.');
+  location.reload();
+});
+
+document.getElementById('loadDb').addEventListener('click', ()=>loadDb());
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(currentDB, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'database.json'; a.click(); URL.revokeObjectURL(url);
+});
+document.getElementById('cleanupBtn').addEventListener('click', async ()=>{
+  cleanExpired();
+  await saveDb('Cleanup expired accounts');
+  alert('Cleanup done');
+});
+
+// attempt to prefill owner/repo/path/branch from settings.js on load
+window.addEventListener('load', ()=>{
+  document.getElementById('ghOwner').value = getLocalOverride('GITHUB_OWNER') || (window.GITHUB_OWNER || '');
+  document.getElementById('ghRepo').value  = getLocalOverride('GITHUB_REPO')  || (window.GITHUB_REPO  || '');
+  document.getElementById('ghPath').value  = getLocalOverride('GITHUB_PATH')  || (window.GITHUB_PATH  || 'database.json');
+  document.getElementById('ghBranch').value= getLocalOverride('GITHUB_BRANCH') || (window.GITHUB_BRANCH || 'main');
+  // if token in settings.js, store to localStorage for use by gh functions (optional)
+  if(window.GITHUB_TOKEN && !getLocalOverride('GITHUB_TOKEN')){
+    localStorage.setItem('cfg_GITHUB_TOKEN', window.GITHUB_TOKEN);
+  }
+  // try auto-load if config complete
+  const cfg = getConfig();
+  if(cfg.owner && cfg.repo && cfg.token) {
+    loadDb().catch(err=> showLog('Auto-load failed: '+err.message));
+  } else {
+    showLog('GitHub config incomplete. Set in settings.js or local overrides.');
+    document.getElementById('codesList').textContent = '(GitHub config incomplete)';
+    document.getElementById('accountsList').textContent = '(GitHub config incomplete)';
+  }
+});
+</script>
+</body>
+</html>
