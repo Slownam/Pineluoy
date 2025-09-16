@@ -1,0 +1,230 @@
+<!Doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Login (Kode 1x) — Panel</title>
+<style>
+  :root{--bg1:#6c5ce7;--bg2:#4f46e5}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#eef2ff}
+  .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px}
+  .card{width:100%;max-width:520px;background:rgba(255,255,255,0.04);border-radius:12px;padding:18px;border:1px solid rgba(255,255,255,0.06)}
+  label{display:block;margin-top:8px;font-weight:700}
+  input,button,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#e6eef8}
+  .row{display:flex;gap:8px}
+  .btn{background:linear-gradient(90deg,#8b5cf6,#5b21b6);color:white;padding:10px;border-radius:8px;border:0;cursor:pointer}
+  .muted{color:rgba(226,232,255,0.85);font-size:13px}
+  .small{font-size:13px;color:#c7d2fe}
+  pre{background:#07102a;padding:10px;border-radius:8px;overflow:auto}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2>Login — Masuk ke Create Panel</h2>
+      <p class="muted">Masukkan Nama, Email, Nomor WA, dan Kode Akses (1x). Sistem akan memeriksa <code>database.json</code> di repo (konfigurasi lewat <code>settings.js</code>).</p>
+
+      <label>Settings URL (raw settings.js) — *wajib di-load sekali*</label>
+      <div style="display:flex;gap:8px">
+        <input id="settingsUrl" placeholder="https://raw.githubusercontent.com/ORG/REPO/BRANCH/path/settings.js" />
+        <button id="loadSettingsBtn" class="btn" style="width:130px">Load Settings</button>
+      </div>
+      <div id="settingsInfo" class="small" style="margin-top:6px">Settings belum dimuat.</div>
+
+      <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.06)">
+
+      <form id="loginForm">
+        <label>Nama</label>
+        <input id="name" required placeholder="contoh: rizky" />
+
+        <label>Email</label>
+        <input id="email" type="email" required placeholder="nama@gmail.com" />
+
+        <label>Nomor WA (contoh 6285...)</label>
+        <input id="wa" required placeholder="6285..." />
+
+        <label>Kode Akses</label>
+        <input id="code" required placeholder="lfxxxxx" />
+
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <button id="submitBtn" type="submit" class="btn">Login</button>
+          <div id="status" class="muted">&nbsp;</div>
+        </div>
+      </form>
+
+      <div id="result" style="margin-top:12px;display:none">
+        <h4 class="small">Hasil</h4>
+        <div id="resultMsg" class="small"></div>
+        <pre id="raw" style="display:none"></pre>
+      </div>
+
+      <p style="margin-top:12px" class="small">Catatan: untuk testing, kamu bisa host sebuah <code>settings.js</code> di repo adminmu (raw URL) yang menetapkan variabel global seperti <code>window.GITHUB_OWNER</code>, <code>window.GITHUB_REPO</code>, <code>window.GITHUB_PATH</code>, <code>window.GITHUB_TOKEN</code>, dan juga <code>window.Domain</code>, <code>window.ptla</code>, dsb.</p>
+    </div>
+  </div>
+
+<script>
+/*
+  WORKING flow:
+  - Load settings.js from provided raw URL (eval in global scope).
+  - settings.js must set (window.)GITHUB_OWNER, GITHUB_REPO, GITHUB_PATH, GITHUB_TOKEN.
+  - On submit: GET database.json from GitHub, check code exists & unused.
+    - If valid: mark code used, add account to accounts array, PUT back to GitHub.
+    - Then save sessionStorage auth and redirect to create.html.
+*/
+
+const API_BASE = 'https://api.github.com/repos';
+
+// Helpers
+function b64encode(s){ return btoa(unescape(encodeURIComponent(s))); }
+function b64decode(b){ try{ return decodeURIComponent(escape(atob(b))); }catch(e){ return atob(b);} }
+
+function getLocalSettingsUrl(){ return localStorage.getItem('settings_url') || ''; }
+function setLocalSettingsUrl(u){ localStorage.setItem('settings_url', u); }
+
+async function fetchAndEvalSettings(url){
+  // fetch settings.js text and eval globally
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('Tidak bisa mengambil settings.js (HTTP ' + r.status + ')');
+  const txt = await r.text();
+  // evaluate in global scope - settings.js should set window.GITHUB_* etc
+  (0,eval)(txt);
+  // store url for reuse
+  setLocalSettingsUrl(url);
+  return true;
+}
+
+async function ghGet(owner, repo, path, token){
+  const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  const res = await fetch(url, { headers: { 'Authorization':'token ' + token, 'Accept':'application/vnd.github.v3+json' } });
+  if(res.status === 404) return null;
+  if(!res.ok) throw new Error('GitHub GET error: ' + res.status + ' ' + await res.text());
+  return await res.json();
+}
+async function ghPut(owner, repo, path, contentB64, message, sha, token, branch){
+  const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  const body = { message, content: contentB64, branch };
+  if(sha) body.sha = sha;
+  const res = await fetch(url, { method:'PUT', headers:{ 'Authorization':'token ' + token, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+  if(!res.ok) throw new Error('GitHub PUT error: ' + res.status + ' ' + await res.text());
+  return await res.json();
+}
+
+function genId(){ return 'id_' + Math.random().toString(36).slice(2,10); }
+
+function showSettingsInfo(){
+  const info = document.getElementById('settingsInfo');
+  const owner = window.GITHUB_OWNER || '';
+  const repo = window.GITHUB_REPO || '';
+  const path = window.GITHUB_PATH || 'database.json';
+  const token = window.GITHUB_TOKEN ? '✅ token set' : '❗ token NOT set';
+  if(owner && repo){
+    info.textContent = `Settings dimuat — owner: ${owner}, repo: ${repo}, path: ${path} — ${token}`;
+  } else {
+    info.textContent = 'Settings dimuat tapi owner/repo belum lengkap.';
+  }
+}
+
+// Load settings from saved URL (if exists) on load
+window.addEventListener('load', async ()=>{
+  const saved = getLocalSettingsUrl();
+  if(saved){
+    document.getElementById('settingsUrl').value = saved;
+    try { await fetchAndEvalSettings(saved); showSettingsInfo(); } catch(e){ document.getElementById('settingsInfo').textContent = 'Load settings gagal: ' + e.message; }
+  }
+});
+
+document.getElementById('loadSettingsBtn').addEventListener('click', async ()=>{
+  const url = document.getElementById('settingsUrl').value.trim();
+  if(!url){ alert('Masukkan Settings URL (raw)'); return; }
+  document.getElementById('settingsInfo').textContent = 'Loading settings...';
+  try{
+    await fetchAndEvalSettings(url);
+    showSettingsInfo();
+    alert('Settings dimuat.');
+  }catch(err){
+    alert('Gagal load settings.js: ' + err.message);
+    document.getElementById('settingsInfo').textContent = 'Gagal load settings: ' + err.message;
+  }
+});
+
+// Login form
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const status = document.getElementById('status');
+  const result = document.getElementById('result');
+  const raw = document.getElementById('raw');
+  result.style.display = 'none'; raw.style.display='none';
+  status.textContent = 'Memeriksa...';
+  const name = document.getElementById('name').value.trim();
+  const email = (document.getElementById('email').value||'').trim().toLowerCase();
+  const wa = document.getElementById('wa').value.trim();
+  const code = document.getElementById('code').value.trim();
+
+  try{
+    // require settings loaded
+    if(!window.GITHUB_OWNER || !window.GITHUB_REPO || !window.GITHUB_TOKEN){
+      throw new Error('settings.js belum dimuat atau konfigurasi GitHub incomplete. Pastikan GITHUB_OWNER/GITHUB_REPO/GITHUB_TOKEN ada.');
+    }
+    const owner = window.GITHUB_OWNER;
+    const repo = window.GITHUB_REPO;
+    const path = window.GITHUB_PATH || 'database.json';
+    const token = window.GITHUB_TOKEN;
+    const branch = window.GITHUB_BRANCH || 'main';
+
+    // get db
+    const file = await ghGet(owner, repo, path, token);
+    let db = { codes:[], accounts:[] };
+    let sha = null;
+    if(file){
+      sha = file.sha;
+      const content = b64decode(file.content.replace(/\n/g,''));
+      db = JSON.parse(content);
+    }
+
+    db.codes = db.codes || [];
+    db.accounts = db.accounts || [];
+
+    // find code unused
+    const found = db.codes.find(c => c.code === code && !c.used);
+    if(!found) throw new Error('Kode tidak valid atau sudah digunakan.');
+
+    // if code assigned to name, check match
+    if(found.name && found.name.trim() !== '' && found.name.toLowerCase() !== name.toLowerCase()){
+      throw new Error('Kode ini bukan untuk nama yang dimasukkan.');
+    }
+
+    // create account entry and mark code used
+    const acc = {
+      id: genId(),
+      name, email, wa,
+      created_at: new Date().toISOString(),
+      expires_at: null
+    };
+    db.accounts.push(acc);
+    found.used = true;
+    found.used_by = email;
+    found.used_at = new Date().toISOString();
+
+    // write back to GitHub
+    const newContent = b64encode(JSON.stringify(db, null, 2));
+    await ghPut(owner, repo, path, newContent, `Add account ${acc.id} via login`, sha, token, branch);
+
+    // success: save session and redirect
+    sessionStorage.setItem('auth_logged_in','1');
+    sessionStorage.setItem('auth_user', JSON.stringify(acc));
+    document.getElementById('resultMsg').textContent = 'Login & registrasi sukses. Mengarahkan ke Create Panel...';
+    result.style.display = 'block';
+    status.textContent = 'Sukses';
+    setTimeout(()=> window.location.href = 'create.html', 700);
+
+  }catch(err){
+    document.getElementById('resultMsg').textContent = 'Error: ' + (err.message || err);
+    result.style.display = 'block';
+    raw.textContent = (err.stack || '');
+    raw.style.display = 'none';
+    status.textContent = '';
+  }
+});
+</script>
+</body>
+</html>
