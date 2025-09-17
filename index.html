@@ -1,214 +1,116 @@
 <!doctype html>
 <html lang="id">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Login — Panel</title>
 <style>
-  :root{--bg1:#6c5ce7;--bg2:#4f46e5}
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#eef2ff}
-  .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px}
-  .card{width:100%;max-width:480px;background:rgba(255,255,255,0.04);border-radius:12px;padding:20px;border:1px solid rgba(255,255,255,0.06)}
-  label{display:block;margin-top:10px;font-weight:700;font-size:13px}
-  input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#e6eef8;margin-top:8px}
-  .btn{margin-top:14px;width:100%;padding:12px;border-radius:10px;border:0;background:linear-gradient(90deg,#8b5cf6,#5b21b6);color:white;font-weight:700;cursor:pointer}
-  .muted{color:rgba(226,232,255,0.85);font-size:13px;margin-top:8px}
-  .error{color:#ffb4b4;margin-top:10px}
-  .step{background:rgba(255,255,255,0.03);padding:8px;border-radius:8px;margin-top:10px;font-weight:700}
-  .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.12);border-top-color:#fff;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .toast{margin-top:10px;padding:8px;border-radius:8px;background:rgba(11,17,26,0.8);color:#dbeafe}
+:root{--bg1:#120633;--bg2:#0b3b6f;--card:rgba(255,255,255,0.03);--accent:#7c3aed;--text:#eaf2ff}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:100%;max-width:520px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:20px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 12px 40px rgba(1,6,30,0.6)}
+h2{margin:0 0 6px 0}
+label{display:block;margin-top:10px;font-size:13px;color:#cfe0ff}
+.input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text);margin-top:8px}
+.btn{width:100%;margin-top:14px;padding:12px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--accent),#4f46e5);color:white;font-weight:700;cursor:pointer}
+.steps{margin-top:12px}
+.step{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);font-weight:700}
+.spinner{width:16px;height:16px;border-radius:50%;border:3px solid rgba(255,255,255,0.12);border-top-color:white;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err{color:#ffb4b4;margin-top:10px}
+.small{font-size:13px;color:#cfe0ff;margin-top:10px}
+.links{margin-top:12px;display:flex;gap:8px;align-items:center}
+.link{color:#cfe0ff;text-decoration:underline}
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h2>Login</h2>
-      <p class="muted">Silahkan Login Agar Bisa Create Panelnya kak ^-^</p>
+  <div class="card">
+    <h2>Login / Register</h2>
+    <div class="small">Isi data & kode akses. Kode 1x pakai.</div>
 
-      <form id="loginForm">
-        <label>Nama</label>
-        <input id="name" required placeholder="contoh: rizky" />
+    <form id="form">
+      <label>Nama</label>
+      <input id="name" class="input" placeholder="nama lengkap" required>
 
-        <label>Email</label>
-        <input id="email" type="email" required placeholder="nama@gmail.com" />
+      <label>Email</label>
+      <input id="email" class="input" placeholder="nama@gmail.com" type="email" required>
 
-        <label>Nomor WA (contoh: 6285...)</label>
-        <input id="wa" required placeholder="6285..." />
+      <label>Nomor WA (628...)</label>
+      <input id="wa" class="input" placeholder="6285..." required>
 
-        <label>Tanggal Lahir (YYYY-MM-DD)</label>
-        <input id="dob" required placeholder="1995-12-31" />
+      <label>Tanggal Lahir (YYYY-MM-DD)</label>
+      <input id="dob" class="input" placeholder="1990-01-01" required>
 
-        <label>Kode Akses</label>
-        <input id="code" required placeholder="lfxxxxx" />
+      <label>Kode Akses</label>
+      <input id="code" class="input" placeholder="lfxxxxx" required>
 
-        <button class="btn" type="submit">Login</button>
-      </form>
+      <button id="btnLogin" class="btn" type="submit">Login</button>
+    </form>
 
-      <div id="stepsArea" style="margin-top:12px"></div>
-      <div id="status" class="muted" style="margin-top:10px"></div>
-      <div id="err" class="error" style="display:none"></div>
+    <div id="steps" class="steps"></div>
+    <div id="err" class="err"></div>
+
+    <div class="links">
+      <div class="small">Butuh bantuan?</div>
+      <a class="link" href="https://wa.me/6283150061244" target="_blank">WA</a>
+      <a class="link" href="https://t.me/lfstarstore" target="_blank">Telegram</a>
     </div>
   </div>
 
 <script src="settings.js"></script>
 <script>
-/*
- login.html (WORKING, updated)
- - reads admin_cfg from localStorage (fallback default token)
- - displays step-by-step UI with spinner and messages
- - writes account to database.json and marks code used (with retry handled on server-side admin)
-*/
-
-const API_BASE = 'https://api.github.com/repos';
-
-// DEFAULT fallback
-const DEFAULT_DB = {
-  owner: 'Slownam',
-  repo: 'databsepanel',
-  path: 'database.json',
-  branch: 'main',
-  token: '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'
-};
-
-let stored = null;
-try { stored = JSON.parse(localStorage.getItem('admin_cfg') || 'null'); } catch(e){ stored = null; }
-
-const DB_OWNER  = (stored && stored.owner) ? stored.owner : DEFAULT_DB.owner;
-const DB_REPO   = (stored && stored.repo) ? stored.repo : DEFAULT_DB.repo;
-const DB_PATH   = (stored && stored.path) ? stored.path : DEFAULT_DB.path;
-const DB_BRANCH = (stored && stored.branch) ? stored.branch : DEFAULT_DB.branch;
-const DB_TOKEN  = (stored && stored.token) ? stored.token : DEFAULT_DB.token;
-
-function b64Encode(s){ return btoa(unescape(encodeURIComponent(s))); }
-function b64Decode(b){ try{ return decodeURIComponent(escape(atob(b))); }catch(e){ return atob(b); } }
-
-async function ghGet(owner, repo, path, token){
-  const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  const res = await fetch(url, { headers: { 'Authorization':'token ' + token, 'Accept':'application/vnd.github.v3+json' } });
-  if(res.status === 404) return null;
-  if(!res.ok) throw new Error('GitHub GET error: ' + res.status + ' - ' + await res.text());
-  return await res.json();
+function getApiBase(){
+  try{ const c = JSON.parse(localStorage.getItem('panel_api_cfg')||'null'); if(c && c.api_base) return c.api_base; }catch(e){}
+  return (window.API_CONFIG && window.API_CONFIG.API_BASE) ? window.API_CONFIG.API_BASE : 'http://127.0.0.1:3000';
 }
-async function ghPut(owner, repo, path, contentB64, message, sha, token, branch){
-  const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  const body = { message, content: contentB64, branch };
-  if(sha) body.sha = sha;
-  const res = await fetch(url, { method: 'PUT', headers: { 'Authorization':'token ' + token, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-  if(!res.ok) throw new Error('GitHub PUT error: ' + res.status + ' - ' + await res.text());
-  return await res.json();
+function showStep(text, busy=true){
+  const el = document.getElementById('steps');
+  el.innerHTML = `<div class="step">${busy?'<span class="spinner" aria-hidden="true"></span>':''}<div>${text}</div></div>`;
+}
+function clearStep(){ document.getElementById('steps').innerHTML = ''; }
+function showErr(msg){ const e=document.getElementById('err'); e.textContent = msg; setTimeout(()=>e.textContent='',8000); }
+
+async function apiRegister(data){
+  const base = getApiBase();
+  const res = await fetch(base + '/api/register', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify(data)
+  });
+  let j;
+  try{ j = await res.json(); } catch(e){ throw new Error('Server tidak merespon JSON'); }
+  if(!j.ok) throw new Error(j.error || JSON.stringify(j));
+  return j.account;
 }
 
-function safeDecode(content){
-  try{ return atob(content.replace(/\n/g,'')); } catch(e){ return b64Decode(content.replace(/\n/g,'')); }
-}
-
-function showStep(msg, busy=true){
-  const area = document.getElementById('stepsArea');
-  area.innerHTML = `<div class="step">${busy?'<span class="spinner" aria-hidden="true"></span>':''}${msg}</div>`;
-}
-function clearStep(){ document.getElementById('stepsArea').innerHTML = ''; }
-function showToast(msg, isError=false){
-  const area = document.getElementById('stepsArea');
-  area.innerHTML = `<div class="toast" style="background:${isError?'rgba(127,29,29,0.6)':'rgba(11,17,26,0.7)'}">${msg}</div>`;
-}
-
-function genId(){ return 'id_' + Math.random().toString(36).slice(2,10); }
-function isExpired(iso){ if(!iso) return false; const t = Date.parse(iso); return isNaN(t) ? false : Date.now() > t; }
-
-document.getElementById('loginForm').addEventListener('submit', async (ev)=>{
+document.getElementById('form').addEventListener('submit', async (ev)=>{
   ev.preventDefault();
-  document.getElementById('err').style.display = 'none';
-  document.getElementById('status').textContent = '';
+  document.getElementById('err').textContent = '';
   try{
-    const name = (document.getElementById('name').value||'').trim();
-    const email = (document.getElementById('email').value||'').trim().toLowerCase();
-    const wa = (document.getElementById('wa').value||'').trim();
-    const dob = (document.getElementById('dob').value||'').trim();
-    const code = (document.getElementById('code').value||'').trim();
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const wa = document.getElementById('wa').value.trim();
+    const dob = document.getElementById('dob').value.trim();
+    const code = document.getElementById('code').value.trim();
 
-    if(!name || !email || !wa || !dob || !code) throw new Error('Isi semua field.');
+    if(!name||!email||!wa||!dob||!code) return showErr('Lengkapi semua field');
 
-    // STEP 1: Checking code availability
     showStep('Mengecek ketersediaan kode...');
-    const file = await ghGet(DB_OWNER, DB_REPO, DB_PATH, DB_TOKEN);
-    if(!file) throw new Error('database.json tidak ditemukan di repo.');
-    const decoded = safeDecode(file.content);
-    const db = JSON.parse(decoded);
-    db.codes = db.codes || [];
-    db.accounts = db.accounts || [];
+    await new Promise(r=>setTimeout(r,300));
 
-    const found = db.codes.find(c => c.code === code && !c.used);
-    await new Promise(r=>setTimeout(r,250)); // small UX pause
-    if(!found){ showToast('Kode tidak valid atau sudah digunakan', true); throw new Error('Kode tidak valid atau sudah digunakan.'); }
-    if(found.expires_at && isExpired(found.expires_at)){ showToast('Kode sudah kadaluarsa', true); throw new Error('Kode sudah kadaluarsa.'); }
+    showStep('Kode ditemukan — Menggunakan kode...');
+    const account = await apiRegister({ name, email, wa, dob, code });
 
-    // STEP 2: found
-    showStep('Kode ditemukan — menggunakan kode...');
-    await new Promise(r=>setTimeout(r,400));
-
-    // mark code used & add account
-    const acc = {
-      id: genId(),
-      name,
-      email,
-      wa,
-      dob,
-      created_at: new Date().toISOString(),
-      expires_at: found.expires_at || null,
-      servers: []
-    };
-    db.accounts.push(acc);
-    found.used = true;
-    found.used_by = email;
-    found.used_at = new Date().toISOString();
-
-    // prepare to commit: encode and try PUT. Use file.sha from GET for optimistic update
-    const content = b64Encode(JSON.stringify(db, null, 2));
-    try {
-      showStep('Mengirim data ke repositori — menyimpan...');
-      const putRes = await ghPut(DB_OWNER, DB_REPO, DB_PATH, content, `Add account ${acc.id} via login`, file.sha, DB_TOKEN, DB_BRANCH);
-      // success
-    } catch(err){
-      // if 409 (sha mismatch) then re-get and retry once
-      const msg = (err && err.message) ? err.message : String(err);
-      if(msg.includes('409')){
-        showStep('Terjadi perubahan pada DB, mengambil versi terbaru dan mencoba lagi...');
-        const latest = await ghGet(DB_OWNER, DB_REPO, DB_PATH, DB_TOKEN);
-        if(!latest) throw new Error('Gagal ambil versi terbaru DB saat retry.');
-        const latestDecoded = safeDecode(latest.content);
-        const latestDB = JSON.parse(latestDecoded);
-        // attempt simple merge: append our new account and mark code used if code still exists and unused
-        latestDB.accounts = latestDB.accounts || [];
-        latestDB.codes = latestDB.codes || [];
-        // mark code in latestDB if present
-        const lf = latestDB.codes.find(x=>x.code === code && !x.used);
-        if(lf){ lf.used = true; lf.used_by = email; lf.used_at = new Date().toISOString(); }
-        latestDB.accounts.push(acc);
-        const content2 = b64Encode(JSON.stringify(latestDB, null, 2));
-        // second attempt
-        const put2 = await ghPut(DB_OWNER, DB_REPO, DB_PATH, content2, `Add account ${acc.id} via login (retry)`, latest.sha, DB_TOKEN, DB_BRANCH);
-        // if still fails, let it throw
-      } else {
-        throw err;
-      }
-    }
-
-    showStep('Sukses, Anda akan dialihkan ke halaman Create Panel...');
-    showToast('Login berhasil', 'success');
-    // save session and db_cfg
-    sessionStorage.setItem('auth_logged_in','1');
-    sessionStorage.setItem('auth_user', JSON.stringify(acc));
-    sessionStorage.setItem('db_cfg', JSON.stringify({ owner:DB_OWNER, repo:DB_REPO, path:DB_PATH, branch:DB_BRANCH, token:DB_TOKEN }));
+    showStep('Sukses, Anda Akan Di Alihkan Ke Halaman Lain', false);
+    // simpan session
+    sessionStorage.setItem('auth_user', JSON.stringify(account));
+    // simpan api base juga agar create page tahu
+    sessionStorage.setItem('panel_api_cfg', JSON.stringify({ api_base: getApiBase() }));
     setTimeout(()=> location.href = 'create.html', 900);
   }catch(err){
-    document.getElementById('err').style.display = 'block';
-    const short = (err && err.message) ? err.message : String(err);
-    document.getElementById('err').textContent = 'Error: ' + short;
+    showStep('Gagal', false);
+    showErr(err.message || 'Terjadi kesalahan');
     console.error(err);
-    // keep error shown
-  } finally {
-    // no-op
   }
 });
 </script>

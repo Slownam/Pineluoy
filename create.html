@@ -1,209 +1,182 @@
 <!doctype html>
 <html lang="id">
 <head>
-<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Create Panel — after login</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Create Panel — LF</title>
 <style>
-  body{font-family:Inter,Arial,system-ui;background:#f7fafc;padding:20px;color:#0f172a}
-  .card{max-width:900px;margin:0 auto;background:white;padding:16px;border-radius:10px;box-shadow:0 8px 30px rgba(2,6,23,0.06)}
-  label{font-weight:700}
-  input,select,textarea,button{width:100%;padding:8px;margin-top:6px;border-radius:8px;border:1px solid #e6eef6}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .btn{background:#2563eb;color:white;padding:8px;border-radius:8px;border:0;cursor:pointer}
-  pre{background:#0b1220;color:#e6eef8;padding:12px;border-radius:8px}
-  .muted{color:#64748b}
+:root{--bg:#020317;--card:#07102a;--neon1:#7c3aed;--neon2:#4f46e5;--text:#eaf4ff}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,#030414,#07102a);color:var(--text);min-height:100vh}
+.container{max-width:980px;margin:30px auto;padding:18px}
+.header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(90deg,var(--neon1),var(--neon2));display:flex;align-items:center;justify-content:center;font-weight:900}
+.card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 12px 40px rgba(2,6,23,0.6);margin-top:14px}
+.input{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text);margin-top:8px}
+.select{padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text);margin-top:8px}
+.btn{padding:10px 14px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--neon1),var(--neon2));color:white;font-weight:700;cursor:pointer;margin-top:12px}
+.countdown{position:fixed;left:18px;top:18px;background:rgba(6,7,20,0.75);padding:10px 12px;border-radius:10px;border:1px solid rgba(124,58,237,0.18);font-weight:700}
+.result{margin-top:12px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03)}
+.small{font-size:13px;color:#cfe0ff;margin-top:8px}
+.footer{margin-top:18px;display:flex;gap:12px;align-items:center}
+.bad{color:#ffb4b4}
+@media (max-width:820px){ .header{flex-direction:column;align-items:flex-start} }
 </style>
 </head>
 <body>
-  <div class="card">
-    <h2>Create Panel (after login)</h2>
-    <div id="who" style="margin-bottom:8px"></div>
-    <div id="countdown" style="margin-bottom:10px;color:#b91c1c;font-weight:700"></div>
+  <div class="countdown" id="countdown">Account: —</div>
 
-    <form id="form">
-      <label>Server name</label><input id="name" required />
-
-      <div class="row">
-        <div><label>RAM pilihan</label>
-          <select id="ram">
-            <option value="1gb">1 GB</option>
-            <option value="2gb">2 GB</option>
-            <option value="3gb">3 GB</option>
-            <option value="4gb">4 GB</option>
-            <option value="5gb">5 GB</option>
-          </select>
+  <div class="container">
+    <div class="header">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="logo">LF</div>
+        <div>
+          <div style="font-weight:800;font-size:18px">Create Panel</div>
+          <div class="small">Buat server Pterodactyl otomatis via API</div>
         </div>
-        <div><label>Allocation ID (optional)</label><input id="alloc" /></div>
+      </div>
+      <div>
+        <button id="btnBack" class="btn" style="background:transparent;border:1px solid rgba(255,255,255,0.06)">Kembali</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>Nama server</label>
+      <input id="srvName" class="input" placeholder="nama-server">
+
+      <label>Pilih RAM</label>
+      <select id="ram" class="select">
+        <option value="1gb">1GB</option><option value="2gb">2GB</option><option value="3gb">3GB</option>
+        <option value="4gb">4GB</option><option value="5gb">5GB</option><option value="6gb">6GB</option>
+        <option value="7gb">7GB</option><option value="8gb">8GB</option><option value="9gb">9GB</option>
+        <option value="10gb">10GB</option><option value="unlimited">Unlimited</option>
+      </select>
+
+      <div class="small" style="margin-top:10px">Email & password dibuat otomatis dari nama.</div>
+      <div style="display:flex;gap:8px">
+        <button id="btnCreate" class="btn">Create Server</button>
+        <button id="btnPreview" class="btn" style="background:transparent;border:1px solid rgba(255,255,255,0.06)">Preview</button>
       </div>
 
-      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-        <button id="createBtn" class="btn" type="submit">Buat Server</button>
-        <button id="logoutBtn" type="button" style="background:#111827;color:white;padding:8px;border-radius:8px;border:0">Logout</button>
-        <div id="status" style="margin-left:10px" class="muted"></div>
-      </div>
-    </form>
+      <div class="result" id="result">Hasil: belum ada</div>
+      <div class="small" id="specs">Spesifikasi: -</div>
 
-    <h3 style="margin-top:14px">Response API</h3>
-    <pre id="resp">-</pre>
+      <div class="footer">
+        <div class="small">WA: <a href="https://wa.me/6283150061244" target="_blank" class="small">6283150061244</a></div>
+        <div class="small">•</div>
+        <div class="small">Telegram: <a href="https://t.me/lfstarstore" target="_blank" class="small">@lfstarstore</a></div>
+      </div>
+    </div>
   </div>
 
 <script src="settings.js"></script>
 <script>
-/*
- create.html (WORKING)
- - requires sessionStorage auth (set by login.html)
- - uses window.Domain & window.ptla from settings.js
- - uses DB config/token from sessionStorage (saved at login)
- - after create server succeeds: append server info to account.servers in database.json and push (PUT) to GitHub
-*/
-
-function b64enc(s){ return btoa(unescape(encodeURIComponent(s))); }
-function b64dec(b){ try{ return decodeURIComponent(escape(atob(b))); }catch(e){ return atob(b); } }
-
-const API_BASE = 'https://api.github.com/repos';
-
-// protect page
-if(sessionStorage.getItem('auth_logged_in') !== '1'){
-  alert('Belum login. Arahkan ke halaman login.');
-  location.href = 'login.html';
+function getApiBase(){
+  try{ const c = JSON.parse(localStorage.getItem('panel_api_cfg')||'null'); if(c && c.api_base) return c.api_base; }catch(e){}
+  return (window.API_CONFIG && window.API_CONFIG.API_BASE) ? window.API_CONFIG.API_BASE : 'http://127.0.0.1:3000';
 }
+function getAdminKey(){ return localStorage.getItem('panel_admin_key') || ''; }
 
-const authUser = JSON.parse(sessionStorage.getItem('auth_user') || '{}');
-const dbCfg = JSON.parse(sessionStorage.getItem('db_cfg') || '{}');
-
-document.getElementById('who').textContent = `Login sebagai: ${authUser.name || authUser.email} (ID: ${authUser.id})`;
-
-// show countdown if expires_at
-function startCountdown(expireIso){
-  const el = document.getElementById('countdown');
-  if(!expireIso){ el.textContent = ''; return; }
-  function update(){
-    const diff = Date.parse(expireIso) - Date.now();
-    if(diff <= 0){ el.textContent = 'Akun kadaluwarsa'; clearInterval(timer); return; }
-    const days = Math.floor(diff / (1000*60*60*24));
-    const hours = Math.floor((diff % (1000*60*60*24)) / (1000*60*60));
-    const mins = Math.floor((diff % (1000*60*60)) / (1000*60));
-    const secs = Math.floor((diff % (1000*60)) / 1000);
-    el.textContent = `Sisa masa aktif: ${days}d ${hours}h ${mins}m ${secs}s`;
-  }
-  update();
-  const timer = setInterval(update, 1000);
-}
-
-startCountdown(authUser.expires_at);
-
-// simple RAM -> limits mapping (example mapping)
+// resource map sesuai case yang kamu minta
 const resourceMap = {
-  "1gb": { ram: 1000, disk: 1000, cpu: 40 },
-  "2gb": { ram: 2000, disk: 1000, cpu: 60 },
-  "3gb": { ram: 3000, disk: 2000, cpu: 80 },
-  "4gb": { ram: 4000, disk: 2000, cpu: 100 },
-  "5gb": { ram: 5000, disk: 3000, cpu: 120 }
+  "1gb": { ram: "1000", disk: "1000", cpu: "40" },
+  "2gb": { ram: "2000", disk: "1000", cpu: "60" },
+  "3gb": { ram: "3000", disk: "2000", cpu: "80" },
+  "4gb": { ram: "4000", disk: "2000", cpu: "100" },
+  "5gb": { ram: "5000", disk: "3000", cpu: "120" },
+  "6gb": { ram: "6000", disk: "3000", cpu: "140" },
+  "7gb": { ram: "7000", disk: "4000", cpu: "160" },
+  "8gb": { ram: "8000", disk: "4000", cpu: "180" },
+  "9gb": { ram: "9000", disk: "5000", cpu: "200" },
+  "10gb": { ram: "10000", disk: "5000", cpu: "220" },
+  "unlimited": { ram: "0", disk: "0", cpu: "0" }
 };
 
-async function ghGet(owner, repo, path, token){
-  const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  const res = await fetch(url, { headers: { 'Authorization':'token '+token, 'Accept':'application/vnd.github.v3+json' }});
-  if(res.status === 404) return null;
-  if(!res.ok) throw new Error('GitHub GET error: ' + res.status + ' ' + await res.text());
-  return await res.json();
+function rand3(){ return Math.floor(100 + Math.random()*900).toString(); }
+function sanitizeName(n){ return n.toLowerCase().replace(/[^a-z0-9]/g,''); }
+
+function updatePreview(){
+  const name = document.getElementById('srvName').value.trim() || 'server';
+  const username = sanitizeName(name) + rand3();
+  document.getElementById('specs').textContent = 'Email contoh: ' + username + '@gmail.com • Password contoh: ' + username + rand3();
 }
-async function ghPut(owner, repo, path, contentB64, message, sha, token, branch){
-  const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  const body = { message, content: contentB64, branch };
-  if(sha) body.sha = sha;
-  const res = await fetch(url, { method:'PUT', headers:{ 'Authorization':'token '+token, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-  if(!res.ok) throw new Error('GitHub PUT error: ' + res.status + ' ' + await res.text());
-  return await res.json();
+document.getElementById('srvName').addEventListener('input', updatePreview);
+document.getElementById('ram').addEventListener('change', updatePreview);
+updatePreview();
+
+// countdown dari sessionStorage auth_user.expires_at
+const authRaw = sessionStorage.getItem('auth_user');
+let AUTH = null;
+if(authRaw){ try{ AUTH = JSON.parse(authRaw); }catch(e){ AUTH = null; } }
+function startCountdown(exp){
+  const el = document.getElementById('countdown');
+  if(!exp){ el.textContent = 'Account: -'; return; }
+  const target = new Date(exp).getTime();
+  const fn = ()=>{
+    const now = Date.now();
+    let d = target - now;
+    if(d <= 0){ el.textContent = 'Account: Kadaluarsa'; clearInterval(iv); return; }
+    const days = Math.floor(d/86400000); d%=86400000;
+    const hrs = Math.floor(d/3600000); d%=3600000;
+    const mins = Math.floor(d/60000); d%=60000;
+    const secs = Math.floor(d/1000);
+    el.textContent = `Sisa: ${days}d ${hrs}j ${mins}m ${secs}d`;
+  };
+  fn();
+  const iv = setInterval(fn,1000);
+}
+if(AUTH && AUTH.expires_at) startCountdown(AUTH.expires_at);
+
+// create server
+async function apiCreate(payload){
+  const base = getApiBase();
+  const key = getAdminKey();
+  if(!key) throw new Error('ADMIN_KEY belum disimpan (Admin Panel)');
+  const res = await fetch(base + '/api/create-server', {
+    method:'POST',
+    headers: { 'Content-Type':'application/json', 'x-api-key': key },
+    body: JSON.stringify(payload)
+  });
+  let j;
+  try{ j = await res.json(); } catch(e){ throw new Error('Ptero API tidak merespon JSON'); }
+  if(!j.ok) throw new Error(j.error || JSON.stringify(j));
+  return j.data || j;
 }
 
-document.getElementById('logoutBtn').addEventListener('click', ()=>{
-  sessionStorage.removeItem('auth_logged_in'); sessionStorage.removeItem('auth_user'); sessionStorage.removeItem('db_cfg');
-  location.href = 'login.html';
-});
+document.getElementById('btnCreate').addEventListener('click', async ()=>{
+  const name = document.getElementById('srvName').value.trim();
+  if(!name) return alert('Isi nama server');
+  const ramKey = document.getElementById('ram').value;
+  const spec = resourceMap[ramKey] || resourceMap['1gb'];
+  // user id from auth
+  const user = (AUTH && AUTH.id) ? AUTH.id : null;
+  const payload = {
+    name,
+    user: user || sanitizeName(name) + rand3(), // backend will accept email or id; ideal: send id
+    egg: (window.API_CONFIG && window.API_CONFIG.EGG) ? window.API_CONFIG.EGG : 15,
+    docker_image: 'ghcr.io/parkervcp/yolks:nodejs_20',
+    startup: '',
+    limits: { memory: Number(spec.ram), swap: 0, disk: Number(spec.disk), io: 500, cpu: Number(spec.cpu) }
+  };
 
-document.getElementById('form').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const status = document.getElementById('status');
-  const resp = document.getElementById('resp');
-  status.textContent = 'Membuat server...'; resp.textContent = '-';
+  const rbox = document.getElementById('result');
+  rbox.innerHTML = 'Membuat server...';
   try{
-    // settings.js values
-    const Domain = window.Domain || '';
-    const ptla = window.ptla || '';
-    if(!Domain || !ptla) throw new Error('settings.js: Domain atau ptla belum di-set.');
-
-    // build payload minimal for Pterodactyl
-    const name = (document.getElementById('name').value||'').trim();
-    const ramKey = document.getElementById('ram').value;
-    const alloc = document.getElementById('alloc').value.trim();
-
-    const map = resourceMap[ramKey] || resourceMap['1gb'];
-
-    const payload = {
-      name: name,
-      user: authUser.id || 1, // owner user ID (should be numeric)
-      egg: parseInt(window.egg || '15'),
-      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_20',
-      startup: '', // leave blank or set default if needed
-      environment: {},
-      limits: { memory: map.ram, swap: 0, disk: map.disk, io: 500, cpu: map.cpu },
-      feature_limits: { databases: 1, backups: 1, allocations: 1 },
-      deploy: { locations: [ parseInt(window.loc || '1') ], dedicated_ip: false, port_range: [] }
-    };
-    if(alloc) payload.deployment = { allocation: parseInt(alloc) };
-
-    // call pterodactyl create
-    const r = await fetch(Domain.replace(/\/$/,'') + '/api/application/servers', {
-      method: 'POST',
-      headers: { 'Accept':'Application/vnd.pterodactyl.v1+json', 'Content-Type':'application/json', 'Authorization':'Bearer ' + ptla },
-      body: JSON.stringify(payload)
-    });
-    const text = await r.text();
-    try{ resp.textContent = JSON.stringify(JSON.parse(text), null, 2); }catch(e){ resp.textContent = text; }
-    status.textContent = r.ok ? 'Server dibuat' : `Gagal (HTTP ${r.status})`;
-
-    if(r.ok){
-      // write server info to database.json
-      if(!dbCfg || !dbCfg.token) { console.warn('DB config/token not present in sessionStorage'); return; }
-      const file = await ghGet(dbCfg.owner, dbCfg.repo, dbCfg.path, dbCfg.token);
-      let db = { codes:[], accounts:[] }; let sha = null;
-      if(file){ sha = file.sha; db = JSON.parse(b64dec(file.content.replace(/\n/g,''))); }
-      db.accounts = db.accounts || [];
-
-      // find account in db by id (authUser.id)
-      const acc = db.accounts.find(a => a.id === authUser.id);
-      const serverLog = { created_at: new Date().toISOString(), payload_summary: { name: payload.name, memory: payload.limits.memory, disk: payload.limits.disk } };
-      if(acc){
-        acc.servers = acc.servers || [];
-        acc.servers.push(serverLog);
-      } else {
-        // fallback: append to accounts (shouldn't happen)
-        db.accounts.push({ id: authUser.id || genId(), name: authUser.name, email: authUser.email, wa: authUser.wa, servers: [serverLog], created_at: new Date().toISOString() });
-      }
-
-      // push back
-      const newContent = b64enc(JSON.stringify(db, null, 2));
-      await ghPut(dbCfg.owner, dbCfg.repo, dbCfg.path, newContent, `Add server for ${authUser.id}`, sha, dbCfg.token, dbCfg.branch || 'main');
-
-      // update session user (so countdown persists)
-      // fetch latest account to maybe get expires_at
-      const updatedFile = await ghGet(dbCfg.owner, dbCfg.repo, dbCfg.path, dbCfg.token);
-      if(updatedFile){
-        const updatedDB = JSON.parse(b64dec(updatedFile.content.replace(/\n/g,'')));
-        const updatedAcc = (updatedDB.accounts||[]).find(a => a.id === authUser.id);
-        if(updatedAcc){
-          sessionStorage.setItem('auth_user', JSON.stringify(updatedAcc));
-          startCountdown(updatedAcc.expires_at);
-        }
-      }
-    }
+    const data = await apiCreate(payload);
+    // tampilkan ringkasan yang rapi, bukan "status:true"
+    let out = '<strong>Berhasil membuat server</strong><br/>';
+    if(data && data.attributes && data.attributes.id) out += `Server ID: ${data.attributes.id}<br/>`;
+    if(data && data.attributes && data.attributes.name) out += `Name: ${data.attributes.name}<br/>`;
+    out += `<pre style="white-space:pre-wrap;max-height:260px;overflow:auto;margin-top:8px">${JSON.stringify(data, null, 2)}</pre>`;
+    rbox.innerHTML = out;
   }catch(err){
-    status.textContent = 'Error: ' + (err.message || err);
-    resp.textContent = err.stack || String(err);
     console.error(err);
+    rbox.innerHTML = `<span class="bad">Error: ${err.message}</span>`;
   }
 });
+
+document.getElementById('btnPreview').addEventListener('click', updatePreview);
+document.getElementById('btnBack').addEventListener('click', ()=> location.href='index.html');
 </script>
 </body>
 </html>
