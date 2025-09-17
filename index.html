@@ -5,68 +5,87 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Login — Panel</title>
 <style>
-  body{font-family:Inter,Arial,system-ui;background:linear-gradient(135deg,#6c5ce7,#4f46e5);color:#eef2ff;margin:0;height:100vh;display:flex;align-items:center;justify-content:center}
-  .card{background:rgba(255,255,255,0.04);padding:20px;border-radius:12px;max-width:440px;width:94%;box-shadow:0 8px 30px rgba(2,6,23,0.3)}
-  h2{margin:0 0 8px}
-  label{display:block;margin-top:10px;font-weight:700}
-  input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#eef2ff;box-sizing:border-box}
-  .btn{margin-top:12px;padding:10px;border-radius:8px;border:0;background:linear-gradient(90deg,#8b5cf6,#5b21b6);color:white;font-weight:700;width:100%}
-  .muted{font-size:13px;color:#c7d2fe;margin-top:8px}
-  .msg{margin-top:10px;font-size:13px}
+  :root{--bg1:#6c5ce7;--bg2:#4f46e5}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#eef2ff}
+  .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px}
+  .card{width:100%;max-width:480px;background:rgba(255,255,255,0.04);border-radius:12px;padding:20px;border:1px solid rgba(255,255,255,0.06)}
+  label{display:block;margin-top:10px;font-weight:700;font-size:13px}
+  input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#e6eef8;margin-top:8px}
+  .btn{margin-top:14px;width:100%;padding:12px;border-radius:10px;border:0;background:linear-gradient(90deg,#8b5cf6,#5b21b6);color:white;font-weight:700;cursor:pointer}
+  .muted{color:rgba(226,232,255,0.85);font-size:13px;margin-top:8px}
+  .error{color:#ffb4b4;margin-top:10px}
+  .step{background:rgba(255,255,255,0.03);padding:8px;border-radius:8px;margin-top:10px;font-weight:700}
+  .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.12);border-top-color:#fff;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast{margin-top:10px;padding:8px;border-radius:8px;background:rgba(11,17,26,0.8);color:#dbeafe}
 </style>
 </head>
 <body>
-  <div class="card">
-    <h2>Login</h2>
-    <p class="muted">Masukkan Nama, Email, Nomor WA, Tanggal Lahir, dan Kode Akses (1x). Jika valid, langsung diarahkan ke create panel.</p>
+  <div class="wrap">
+    <div class="card">
+      <h2>Login</h2>
+      <p class="muted">Silahkan Login Agar Bisa Create Panelnya kak ^-^</p>
 
-    <form id="form">
-      <label>Nama</label>
-      <input id="name" required />
+      <form id="loginForm">
+        <label>Nama</label>
+        <input id="name" required placeholder="contoh: rizky" />
 
-      <label>Email</label>
-      <input id="email" type="email" required />
+        <label>Email</label>
+        <input id="email" type="email" required placeholder="nama@gmail.com" />
 
-      <label>Nomor WA (contoh: 6285...)</label>
-      <input id="wa" required />
+        <label>Nomor WA (contoh: 6285...)</label>
+        <input id="wa" required placeholder="6285..." />
 
-      <label>Tanggal Lahir (YYYY-MM-DD)</label>
-      <input id="dob" placeholder="1995-12-31" required />
+        <label>Tanggal Lahir (YYYY-MM-DD)</label>
+        <input id="dob" required placeholder="1995-12-31" />
 
-      <label>Kode Akses</label>
-      <input id="code" required placeholder="lfxxxxx" />
+        <label>Kode Akses</label>
+        <input id="code" required placeholder="lfxxxxx" />
 
-      <button class="btn" type="submit">Login</button>
-    </form>
+        <button class="btn" type="submit">Login</button>
+      </form>
 
-    <div id="status" class="msg"></div>
+      <div id="stepsArea" style="margin-top:12px"></div>
+      <div id="status" class="muted" style="margin-top:10px"></div>
+      <div id="err" class="error" style="display:none"></div>
+    </div>
   </div>
 
 <script src="settings.js"></script>
 <script>
 /*
-  WORKING login:
-  - Uses DB credentials you provided (owner/repo/path/token).
-  - GET database.json, validate code, mark used, add account, PUT back.
-  - Save session (auth_user + db_cfg) and redirect to create.html.
+ login.html (WORKING, updated)
+ - reads admin_cfg from localStorage (fallback default token)
+ - displays step-by-step UI with spinner and messages
+ - writes account to database.json and marks code used (with retry handled on server-side admin)
 */
 
-/* ----- CONFIG: already filled with your data ----- */
-const DB_OWNER  = 'Slownam';
-const DB_REPO   = 'databsepanel';   // you specified this repo name
-const DB_PATH   = 'database.json';
-const DB_BRANCH = 'main';
-// Token you provided (no trailing dot)
-const DB_TOKEN  = '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';
-/* ------------------------------------------------- */
-
 const API_BASE = 'https://api.github.com/repos';
-function b64enc(s){ return btoa(unescape(encodeURIComponent(s))); }
-function b64dec(b){ try{ return decodeURIComponent(escape(atob(b))); } catch(e){ return atob(b); } }
+
+// DEFAULT fallback
+const DEFAULT_DB = {
+  owner: 'Slownam',
+  repo: 'databsepanel',
+  path: 'database.json',
+  branch: 'main',
+  token: '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'
+};
+
+let stored = null;
+try { stored = JSON.parse(localStorage.getItem('admin_cfg') || 'null'); } catch(e){ stored = null; }
+
+const DB_OWNER  = (stored && stored.owner) ? stored.owner : DEFAULT_DB.owner;
+const DB_REPO   = (stored && stored.repo) ? stored.repo : DEFAULT_DB.repo;
+const DB_PATH   = (stored && stored.path) ? stored.path : DEFAULT_DB.path;
+const DB_BRANCH = (stored && stored.branch) ? stored.branch : DEFAULT_DB.branch;
+const DB_TOKEN  = (stored && stored.token) ? stored.token : DEFAULT_DB.token;
+
+function b64Encode(s){ return btoa(unescape(encodeURIComponent(s))); }
+function b64Decode(b){ try{ return decodeURIComponent(escape(atob(b))); }catch(e){ return atob(b); } }
 
 async function ghGet(owner, repo, path, token){
   const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  const res = await fetch(url, { headers: { 'Authorization':'token ' + token, 'Accept':'application/vnd.github.v3+json' }});
+  const res = await fetch(url, { headers: { 'Authorization':'token ' + token, 'Accept':'application/vnd.github.v3+json' } });
   if(res.status === 404) return null;
   if(!res.ok) throw new Error('GitHub GET error: ' + res.status + ' - ' + await res.text());
   return await res.json();
@@ -75,17 +94,32 @@ async function ghPut(owner, repo, path, contentB64, message, sha, token, branch)
   const url = `${API_BASE}/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
   const body = { message, content: contentB64, branch };
   if(sha) body.sha = sha;
-  const res = await fetch(url, { method:'PUT', headers: { 'Authorization':'token ' + token, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+  const res = await fetch(url, { method: 'PUT', headers: { 'Authorization':'token ' + token, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' }, body: JSON.stringify(body) });
   if(!res.ok) throw new Error('GitHub PUT error: ' + res.status + ' - ' + await res.text());
   return await res.json();
 }
 
-function genId(){ return 'id_' + Math.random().toString(36).slice(2,10); }
+function safeDecode(content){
+  try{ return atob(content.replace(/\n/g,'')); } catch(e){ return b64Decode(content.replace(/\n/g,'')); }
+}
 
-document.getElementById('form').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const st = document.getElementById('status');
-  st.textContent = 'Memproses...';
+function showStep(msg, busy=true){
+  const area = document.getElementById('stepsArea');
+  area.innerHTML = `<div class="step">${busy?'<span class="spinner" aria-hidden="true"></span>':''}${msg}</div>`;
+}
+function clearStep(){ document.getElementById('stepsArea').innerHTML = ''; }
+function showToast(msg, isError=false){
+  const area = document.getElementById('stepsArea');
+  area.innerHTML = `<div class="toast" style="background:${isError?'rgba(127,29,29,0.6)':'rgba(11,17,26,0.7)'}">${msg}</div>`;
+}
+
+function genId(){ return 'id_' + Math.random().toString(36).slice(2,10); }
+function isExpired(iso){ if(!iso) return false; const t = Date.parse(iso); return isNaN(t) ? false : Date.now() > t; }
+
+document.getElementById('loginForm').addEventListener('submit', async (ev)=>{
+  ev.preventDefault();
+  document.getElementById('err').style.display = 'none';
+  document.getElementById('status').textContent = '';
   try{
     const name = (document.getElementById('name').value||'').trim();
     const email = (document.getElementById('email').value||'').trim().toLowerCase();
@@ -93,47 +127,88 @@ document.getElementById('form').addEventListener('submit', async (e)=>{
     const dob = (document.getElementById('dob').value||'').trim();
     const code = (document.getElementById('code').value||'').trim();
 
-    if(!name || !email || !wa || !dob || !code) { st.textContent = 'Isi semua field.'; return; }
+    if(!name || !email || !wa || !dob || !code) throw new Error('Isi semua field.');
 
-    // 1) GET DB file
+    // STEP 1: Checking code availability
+    showStep('Mengecek ketersediaan kode...');
     const file = await ghGet(DB_OWNER, DB_REPO, DB_PATH, DB_TOKEN);
-    let db = { codes: [], accounts: [] };
-    let sha = null;
-    if(file){
-      sha = file.sha;
-      const content = b64dec(file.content.replace(/\n/g,''));
-      db = JSON.parse(content);
-    }
-
+    if(!file) throw new Error('database.json tidak ditemukan di repo.');
+    const decoded = safeDecode(file.content);
+    const db = JSON.parse(decoded);
     db.codes = db.codes || [];
     db.accounts = db.accounts || [];
 
-    // 2) find code unused
     const found = db.codes.find(c => c.code === code && !c.used);
-    if(!found){ st.textContent = 'Kode tidak valid atau sudah digunakan.'; return; }
+    await new Promise(r=>setTimeout(r,250)); // small UX pause
+    if(!found){ showToast('Kode tidak valid atau sudah digunakan', true); throw new Error('Kode tidak valid atau sudah digunakan.'); }
+    if(found.expires_at && isExpired(found.expires_at)){ showToast('Kode sudah kadaluarsa', true); throw new Error('Kode sudah kadaluarsa.'); }
 
-    // 3) add account, mark code used
-    const acc = { id: genId(), name, email, wa, dob, created_at: (new Date()).toISOString(), expires_at: null, servers: [] };
+    // STEP 2: found
+    showStep('Kode ditemukan — menggunakan kode...');
+    await new Promise(r=>setTimeout(r,400));
+
+    // mark code used & add account
+    const acc = {
+      id: genId(),
+      name,
+      email,
+      wa,
+      dob,
+      created_at: new Date().toISOString(),
+      expires_at: found.expires_at || null,
+      servers: []
+    };
     db.accounts.push(acc);
     found.used = true;
     found.used_by = email;
-    found.used_at = (new Date()).toISOString();
+    found.used_at = new Date().toISOString();
 
-    // 4) write back to GitHub
-    const newContent = b64enc(JSON.stringify(db, null, 2));
-    await ghPut(DB_OWNER, DB_REPO, DB_PATH, newContent, `Add account ${acc.id} via login`, sha, DB_TOKEN, DB_BRANCH);
+    // prepare to commit: encode and try PUT. Use file.sha from GET for optimistic update
+    const content = b64Encode(JSON.stringify(db, null, 2));
+    try {
+      showStep('Mengirim data ke repositori — menyimpan...');
+      const putRes = await ghPut(DB_OWNER, DB_REPO, DB_PATH, content, `Add account ${acc.id} via login`, file.sha, DB_TOKEN, DB_BRANCH);
+      // success
+    } catch(err){
+      // if 409 (sha mismatch) then re-get and retry once
+      const msg = (err && err.message) ? err.message : String(err);
+      if(msg.includes('409')){
+        showStep('Terjadi perubahan pada DB, mengambil versi terbaru dan mencoba lagi...');
+        const latest = await ghGet(DB_OWNER, DB_REPO, DB_PATH, DB_TOKEN);
+        if(!latest) throw new Error('Gagal ambil versi terbaru DB saat retry.');
+        const latestDecoded = safeDecode(latest.content);
+        const latestDB = JSON.parse(latestDecoded);
+        // attempt simple merge: append our new account and mark code used if code still exists and unused
+        latestDB.accounts = latestDB.accounts || [];
+        latestDB.codes = latestDB.codes || [];
+        // mark code in latestDB if present
+        const lf = latestDB.codes.find(x=>x.code === code && !x.used);
+        if(lf){ lf.used = true; lf.used_by = email; lf.used_at = new Date().toISOString(); }
+        latestDB.accounts.push(acc);
+        const content2 = b64Encode(JSON.stringify(latestDB, null, 2));
+        // second attempt
+        const put2 = await ghPut(DB_OWNER, DB_REPO, DB_PATH, content2, `Add account ${acc.id} via login (retry)`, latest.sha, DB_TOKEN, DB_BRANCH);
+        // if still fails, let it throw
+      } else {
+        throw err;
+      }
+    }
 
-    // 5) store session for create.html: store auth user and db config/token
+    showStep('Sukses, Anda akan dialihkan ke halaman Create Panel...');
+    showToast('Login berhasil', 'success');
+    // save session and db_cfg
     sessionStorage.setItem('auth_logged_in','1');
     sessionStorage.setItem('auth_user', JSON.stringify(acc));
     sessionStorage.setItem('db_cfg', JSON.stringify({ owner:DB_OWNER, repo:DB_REPO, path:DB_PATH, branch:DB_BRANCH, token:DB_TOKEN }));
-
-    st.textContent = 'Login sukses — mengarahkan ke create panel...';
-    setTimeout(()=> window.location.href = 'create.html', 700);
-
+    setTimeout(()=> location.href = 'create.html', 900);
   }catch(err){
-    st.textContent = 'Error: ' + (err.message || err);
+    document.getElementById('err').style.display = 'block';
+    const short = (err && err.message) ? err.message : String(err);
+    document.getElementById('err').textContent = 'Error: ' + short;
     console.error(err);
+    // keep error shown
+  } finally {
+    // no-op
   }
 });
 </script>
