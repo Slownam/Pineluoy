@@ -61,7 +61,7 @@ label{display:block;margin-top:10px;font-size:13px;color:#cfe0ff}
 <script>
 function getApiBase(){
   try{ const c = JSON.parse(localStorage.getItem('panel_api_cfg')||'null'); if(c && c.api_base) return c.api_base; }catch(e){}
-  return (window.API_CONFIG && window.API_CONFIG.API_BASE) ? window.API_CONFIG.API_BASE : 'http://127.0.0.1:3000';
+  return (window.API_CONFIG && window.API_CONFIG.API_BASE) ? window.API_CONFIG.API_BASE : 'http://152.42.204.241:3000';
 }
 function showStep(text, busy=true){
   const el = document.getElementById('steps');
@@ -106,7 +106,7 @@ document.getElementById('form').addEventListener('submit', async (ev)=>{
     sessionStorage.setItem('auth_user', JSON.stringify(account));
     // simpan api base juga agar create page tahu
     sessionStorage.setItem('panel_api_cfg', JSON.stringify({ api_base: getApiBase() }));
-    setTimeout(()=> location.href = 'create.html', 900);
+    setTimeout(()=> location.href = 'panel.html', 900);
   }catch(err){
     showStep('Gagal', false);
     showErr(err.message || 'Terjadi kesalahan');
